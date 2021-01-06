@@ -1,0 +1,14 @@
+https://codepen.io/tomhodgins/pen/mVWmZB
+floxy
+
+
+floxy is a simple service that permit end-to-end ultra secure connection between a remote and a host.
+In few steps, click on the button generate new floxy, and our service will create a new one binary with
+dual step async certificate and unique challenge to connect to our server. You just can download one time
+each of one of binary remote and local. Now, just run:
+
+whats the difference between floxy and other great services like ngrock, etc? Floxy don't expose the remote machine on internet,
+only who has access to those binary can connect each other
+
+great for developers that has needs to expose a service or preview a feature to other peer
+great raspberry owners that want to connect to ssh port over the internet without exposing it

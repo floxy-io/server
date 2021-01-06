@@ -12,7 +12,7 @@ function burnSubmit(token) {
             const res = Http.responseText;
 
             $("#submitText").fadeOut("slow",function() {
-                $(this).text("It's ready for download!").fadeIn("slow");
+                $(this).html("<a>#local</a> It's ready for download! <a>#remote</a>").fadeIn("slow");
                 if (res === "ok"){
                     stopBurn()
                 }

@@ -1,21 +1,25 @@
 package main
 
 import (
+	"cloud.google.com/go/pubsub"
+	"context"
 	"fmt"
 	"github.com/danielsussa/freeport"
 	"github.com/gliderlabs/ssh"
+	"github.com/google/uuid"
 	ssh2 "golang.org/x/crypto/ssh"
 	"io"
 	"log"
 )
 
 type keyProxy struct {
-	Key  string
-	Port int
+	FingerPrint string
+	Key         string
+	Port        int
 }
 
 var pKeyMap map[string]*keyProxy
-
+var portMap map[int]*keyProxy
 
 func init(){
 	pKeyMap = make(map[string]*keyProxy)
@@ -31,7 +35,10 @@ func init(){
 	}
 }
 
+var pubSubCli *pubsub.Client
+
 func main() {
+	portMap = make(map[int]*keyProxy)
 	log.Println("starting ssh server on port 2222...")
 
 	forwardHandler := &ssh.ForwardedTCPHandler{}
@@ -105,4 +112,37 @@ func main() {
 	}
 
 	log.Fatal(server.ListenAndServe())
+
+	// create subscription
+	// create gracefull
+	//pubSubCli.s
+}
+
+func allocateNewHost() chan error{
+
+	chErr := make(chan error)
+
+
+
+	go func() {
+		sub := pubSubCli.Subscription("abc")
+		err := sub.Receive(context.Background(), func(ctx context.Context, message *pubsub.Message) {
+			freePort, err := freeport.GetFreePort()
+			if err != nil {
+				message.Nack()
+				chErr <- err
+				return
+			}
+			fingerPrint := uuid.New().String()
+
+			portMap[freePort] = &keyProxy{
+				FingerPrint: fingerPrint,
+				Port:        freePort,
+			}
+
+			message.Ack()
+		})
+		chErr <- err
+	}()
+	return chErr
 }

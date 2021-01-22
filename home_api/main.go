@@ -65,13 +65,13 @@ func burn(c echo.Context) error{
 
 	// send message to certificate system
 	topic := pubSubCli.Topic("create-binary")
-	res := topic.Publish(c.Request().Context(),&pubsub.Message{Data: []byte("{}")})
-	defer topic.Stop()
-	_, err := res.Get(c.Request().Context())
+	result := topic.Publish(c.Request().Context(),&pubsub.Message{Data: []byte("{}")})
+
+	_, err := result.Get(c.Request().Context())
 	if err != nil {
 		return c.String(400, "nok")
 	}
-	//res := topic.Publish(ctx, &pubsub.Message{Data: []byte("payload")})
+	//result := topic.Publish(ctx, &pubsub.Message{Data: []byte("payload")})
 
 	return c.String(200, "ok")
 }

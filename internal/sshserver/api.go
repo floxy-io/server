@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
+	"github.com/danielsussa/floxy/internal/infra/db"
 	"github.com/danielsussa/freeport"
 	"github.com/gliderlabs/ssh"
 	ssh2 "golang.org/x/crypto/ssh"
@@ -12,6 +13,13 @@ import (
 	"log"
 	"sync"
 )
+
+
+type sshKeyProxy struct {
+	PublicKey   string
+	Fingerprint string
+}
+
 
 type keyProxy struct {
 	FingerPrint string
@@ -21,21 +29,6 @@ type keyProxy struct {
 
 var pKeyMap map[string]*keyProxy
 var portMap map[int]*keyProxy
-
-//func init(){
-//	pKeyMap = make(map[string]*keyProxy)
-//	key := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCx1vJJsiAQmmT5smcNAVTsymemTCCu79MfZDfFySEdgcWIDG2zD9adk6xXbcuXF+Rrl92NrY4Yw+SNXQfpLkymNjRlFcM9NJPoHC0f3cYU+Ke9ipVmvefRNkSfjbqt4LAkGtzBXoPjY0t5Bc0qckjZjHk4xa3IGN4WX+2OWw/MKA1mYRXNDpQoFa7Al+SNSBHtDJtwI2ECauiu5Q7KtMNbknTzsUwfxcPzi0wkLtTD/3/XywgyzEZFumGgqW1kaUPfglJNCYriF5DbEVRpO3PbM0d6fQUYMd53lg+iz5VAcigeDt4nmTH7RsNBl8fGw/zNZA3pScO9VxF+In2xcNtx daniel.kanczuk@pismo.io"
-//
-//	parsedKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(key))
-//	if err != nil {
-//		panic(err)
-//	}
-//
-//	pKeyMap[string(parsedKey.Marshal())] = &keyProxy{
-//		Key: key,
-//	}
-//}
-
 
 var (
 	server ssh.Server
@@ -52,7 +45,6 @@ func Start() {
 	forwardHandler := &ssh.ForwardedTCPHandler{}
 
 	go func() {
-
 		server = ssh.Server{
 			LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, host string, port uint32) bool {
 				log.Println("Accepted forward", host, port)
@@ -127,68 +119,71 @@ func Start() {
 
 type HostResponse struct {
 	PKey *rsa.PrivateKey
-	Port int
 }
 
 var mutex sync.Mutex
 
-func AllocateNewHost()(HostResponse, error){
+func AllocateNewHost(fingerprint string) (HostResponse, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	freePort, err := freeport.GetFreePort()
+	privatekey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return HostResponse{}, err
 	}
 
-	privatekey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return HostResponse{}, nil
-	}
-
 	publicKey, err := ssh2.NewPublicKey(&privatekey.PublicKey)
 	if err != nil {
-		return HostResponse{}, nil
+		return HostResponse{}, err
 	}
 
 	pKeyStr := string(publicKey.Marshal())
-	pKeyMap[pKeyStr] = &keyProxy{
-		Key: pKeyStr,
+
+	err = addKey(sshKeyProxy{PublicKey: pKeyStr, Fingerprint: fingerprint})
+	if err != nil {
+		return HostResponse{}, err
 	}
 
 	return HostResponse{
 		PKey: privatekey,
-		Port: freePort,
 	}, nil
 }
 
-//
-//func allocateNewHost() chan error{
-//
-//	chErr := make(chan error)
-//
-//
-//
-//	go func() {
-//		sub := pubSubCli.Subscription("abc")
-//		err := sub.Receive(context.Background(), func(ctx context.Context, message *pubsub.Message) {
-//			freePort, err := freeport.GetFreePort()
-//			if err != nil {
-//				message.Nack()
-//				chErr <- err
-//				return
-//			}
-//			fingerPrint := uuid.New().String()
-//
-//			portMap[freePort] = &keyProxy{
-//				FingerPrint: fingerPrint,
-//				Port:        freePort,
-//			}
-//
-//			message.Ack()
-//		})
-//		chErr <- err
-//	}()
-//	return chErr
-//}
+var insertOnTable = `
+INSERT INTO sshPair (fingerprint,publicKey)
+VALUES(?,?);
+`
 
+func addKey(k sshKeyProxy)error{
+	dbConn := db.Get()
+	stmt, err := dbConn.Prepare(insertOnTable)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(k.Fingerprint, k.PublicKey)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getByKey(public string)(sshKeyProxy, error){
+	dbConn := db.Get()
+	row, err := dbConn.Query("SELECT fingerprint,publicKey FROM sshPair")
+	if err != nil {
+		return sshKeyProxy{}, err
+	}
+	defer row.Close()
+
+	for row.Next() {
+		var fingerprint string
+		var publicKey string
+		err = row.Scan(&fingerprint, &publicKey)
+		if err != nil {
+			return sshKeyProxy{}, err
+		}
+
+		return sshKeyProxy{Fingerprint: fingerprint, PublicKey: public}, nil
+	}
+	return sshKeyProxy{}, fmt.Errorf("no scan")
+}

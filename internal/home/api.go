@@ -53,15 +53,15 @@ func burn(c echo.Context) error{
 		}
 	}
 
-	serverHost, err := sshserver.AllocateNewHost()
+	fingerPrint := uuid.New().String()
+	serverHost, err := sshserver.AllocateNewHost(fingerPrint)
 	if err != nil{
 		return c.JSON(200, burnResponse{Success: false})
 	}
 
 	binaryRes, err := compiler.Make(compiler.MakeRequest{
 		PKey:        serverHost.PKey,
-		FingerPrint: uuid.New(),
-		Port:        serverHost.Port,
+		FingerPrint: fingerPrint,
 	})
 
 	if err != nil{

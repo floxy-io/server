@@ -5,8 +5,8 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/onsi/gomega/gexec"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +15,7 @@ import (
 
 type MakeRequest struct {
 	PKey        *rsa.PrivateKey
-	FingerPrint uuid.UUID
+	FingerPrint string
 	Port        int
 }
 
@@ -44,31 +44,33 @@ func Make(req MakeRequest)(MakeResponse, error){
 		}
 	}
 
-	return MakeResponse{FingerPrint: req.FingerPrint.String()}, nil
+	if os.Getenv("LOG_KEY") == "true"{
+		log.Println("\nkey: ", getLdFlagFromKey(req.PKey), "\nfingerprint: ", req.FingerPrint)
+	}
+
+	return MakeResponse{FingerPrint: req.FingerPrint}, nil
 }
 
 func compile(req MakeRequest, k string)error{
 
-	certFlag := getLdFlagFromCert(req.PKey)
-	fingerPrint := req.FingerPrint.String()
+	certFlag := getLdFlagFromKey(req.PKey)
 
-	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s", fingerPrint, certFlag)
+	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s", req.FingerPrint, certFlag)
 
 	compStr, err := gexec.Build("internal/cook/main.go","-ldflags",ldFlags)
 	if err != nil {
 		return err
 	}
 
-	newLocation := filepath.Join("internal", "home", "cooked_bin", fingerPrint, k)
+	newLocation := filepath.Join("internal", "home", "cooked_bin", req.FingerPrint, k)
 
-	path := filepath.Join("internal", "home", "cooked_bin",fingerPrint)
+	path := filepath.Join("internal", "home", "cooked_bin",req.FingerPrint)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		err = os.Mkdir(path, 0700)
 		if err != nil {
 			return err
 		}
 	}
-
 
 	err = os.Rename(compStr, newLocation)
 	if err != nil {
@@ -77,7 +79,7 @@ func compile(req MakeRequest, k string)error{
 	return nil
 }
 
-func getLdFlagFromCert(pKey *rsa.PrivateKey)string{
+func getLdFlagFromKey(pKey *rsa.PrivateKey)string{
 	privateKeyBytes := x509.MarshalPKCS1PrivateKey(pKey)
 	keyPem := pem.EncodeToMemory(
 		&pem.Block{

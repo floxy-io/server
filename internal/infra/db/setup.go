@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS sshPair (
 	publicKey TEXT NOT NULL
 );
 `
+func Get()*sql.DB{
+	return db
+}
 
 func Setup()error{
 	var err error

@@ -10,7 +10,10 @@ var db *sql.DB
 var sshPairTable = `
 CREATE TABLE IF NOT EXISTS sshPair (
 	fingerprint TEXT PRIMARY KEY,
-	publicKey TEXT NOT NULL
+	publicKey TEXT NOT NULL,
+	port      NUMBER,
+	createdAt DATE,
+	updatedAt DATE
 );
 `
 func Get()*sql.DB{

@@ -15,7 +15,7 @@ func main() {
 		fmt.Println(string(resBody))
 	}))
 	// Routes
-	e.POST("/", handler)
+	e.GET("/", handler)
 
 	// Start server
 	e.Logger.Fatal(e.Start(":1323"))

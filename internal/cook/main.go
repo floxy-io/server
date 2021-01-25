@@ -9,6 +9,7 @@ MIT License, http://www.opensource.org/licenses/mit-license.php
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"golang.org/x/crypto/ssh"
@@ -17,6 +18,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 )
 
 type SshConfiguration struct {
@@ -26,13 +28,18 @@ type SshConfiguration struct {
 }
 
 func (config *SshConfiguration) String() string {
-	return fmt.Sprintf("%s:%d", config.Host, config.Port)
+	return fmt.Sprintf("%s", config.Host)
 }
 
 func publicKey() ssh.AuthMethod {
-	key, err := ssh.ParsePrivateKey([]byte(PrivateKey))
+	dst, err := base64.StdEncoding.DecodeString(PrivateKey)
 	if err != nil {
-		return nil
+		panic(err)
+	}
+
+	key, err := ssh.ParsePrivateKey(dst)
+	if err != nil {
+		panic(err)
 	}
 	return ssh.PublicKeys(key)
 }
@@ -59,6 +66,7 @@ func (lrl localRemoteListener) listen(){
 }
 
 func(lrl localRemoteListener) handleRemoteClient(remoteConn net.Conn, localConn net.Conn) {
+	//ctx, cancel := context.WithTimeout(context.Background(), time.Second * 5)
 	defer remoteConn.Close()
 	chDone := make(chan bool, 2)
 
@@ -148,11 +156,13 @@ func (sc *sshConnection) execRemote(host string) {
 		local:  host,
 		remote: remoteListener,
 	}
-	defer listener.remote.Close()
+	//defer listener.remote.Close()
 	for {
-		localConn, err := net.Dial("tcp", listener.local)
+		localConn, err := net.DialTimeout("tcp", listener.local, time.Second * 5)
 		if err != nil {
-			log.Fatalln(fmt.Printf("Dial INTO local service error: %s", err))
+			log.Println(fmt.Printf("Dial INTO local service error: %s", err))
+			time.Sleep(5 * time.Second)
+			continue
 		}
 
 		remoteConn, err := listener.remote.Accept()
@@ -172,11 +182,12 @@ func (sc *sshConnection) execLocal(host string) {
 		local:  fmt.Sprintf("localhost:%d",sc.remotePort),
 		remote: remoteListener,
 	}
-	defer listener.remote.Close()
+	//defer listener.remote.Close()
 	for {
-		localConn, err := net.Dial("tcp", listener.local)
+		localConn, err := net.DialTimeout("tcp", listener.local, time.Second * 5)
 		if err != nil {
-			log.Fatalln(fmt.Printf("Dial INTO local service error: %s", err))
+			log.Println(fmt.Printf("Dial INTO local service error: %s", err))
+			continue
 		}
 
 		remoteConn, err := listener.remote.Accept()
@@ -190,27 +201,30 @@ func (sc *sshConnection) execLocal(host string) {
 var FingerPrint string
 var PrivateKey string
 var SshHost string
-var SshPort int
-var SshUser string
 var Kind    string
 
 func main() {
-	log.Println("init local on fingerprint:", FingerPrint)
 	host := flag.String("host", "", "a host")
 	flag.Parse()
 
 	if Kind == "" {
-		os.Getenv("FLOXY_KIND")
+		Kind = os.Getenv("FLOXY_KIND")
 	}
-
+	if FingerPrint == "" {
+		FingerPrint = os.Getenv("FLOXY_FINGERPRINT")
+	}
 	if PrivateKey == "" {
-		os.Getenv("FLOXY_KEY")
+		PrivateKey = os.Getenv("FLOXY_KEY")
 	}
+	if SshHost == "" {
+		SshHost = os.Getenv("FLOXY_SSH_HOST")
+	}
+	log.Println(fmt.Sprintf("init %s on fingerprint:", Kind), FingerPrint)
+
 
 	config := SshConfiguration{
-		User: SshUser,
+		User: FingerPrint,
 		Host: SshHost,
-		Port: SshPort,
 	}
 
 	switch Kind {
@@ -220,7 +234,7 @@ func main() {
 			execLocal(*host)
 	case "remote":
 		NewSshConnection(config).
-			executeGetPort().
+			executeAllocatePort().
 			execRemote(*host)
 	default:
 		log.Fatal("cannot find kind")

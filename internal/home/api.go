@@ -8,6 +8,7 @@ import (
 	"github.com/danielsussa/floxy/internal/sshserver"
 	"github.com/google/uuid"
 	"github.com/labstack/echo"
+	"log"
 )
 
 var (
@@ -56,15 +57,17 @@ func burn(c echo.Context) error{
 	fingerPrint := uuid.New().String()
 	serverHost, err := sshserver.AllocateNewHost(fingerPrint)
 	if err != nil{
+		log.Println(err)
 		return c.JSON(200, burnResponse{Success: false})
 	}
 
 	binaryRes, err := compiler.Make(compiler.MakeRequest{
-		PKey:        serverHost.PKey,
+		PKey:        serverHost.PrivateKey,
 		FingerPrint: fingerPrint,
 	})
 
 	if err != nil{
+		log.Println(err)
 		return c.JSON(200, burnResponse{Success: false})
 	}
 

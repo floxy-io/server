@@ -4,31 +4,25 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"github.com/danielsussa/floxy/internal/infra/db"
 	"github.com/danielsussa/freeport"
 	"github.com/gliderlabs/ssh"
 	ssh2 "golang.org/x/crypto/ssh"
-	"io"
 	"log"
 	"sync"
+	"time"
 )
 
 
 type sshKeyProxy struct {
-	PublicKey   string
+	PublicKey   []byte
 	Fingerprint string
-}
-
-
-type keyProxy struct {
-	FingerPrint string
-	Key         string
 	Port        int
 }
-
-var pKeyMap map[string]*keyProxy
-var portMap map[int]*keyProxy
 
 var (
 	server ssh.Server
@@ -38,58 +32,71 @@ func Shutdown(ctx context.Context)error {
 	return server.Shutdown(ctx)
 }
 func Start() {
-	pKeyMap = make(map[string]*keyProxy)
-	portMap = make(map[int]*keyProxy)
 	log.Println("starting ssh server on port 2222...")
 
 	forwardHandler := &ssh.ForwardedTCPHandler{}
 
 	go func() {
 		server = ssh.Server{
-			LocalPortForwardingCallback: ssh.LocalPortForwardingCallback(func(ctx ssh.Context, host string, port uint32) bool {
+			LocalPortForwardingCallback: func(ctx ssh.Context, host string, port uint32) bool {
+				proxy, err := getProxy(ctx)
+				if err != nil {
+					return false
+				}
+				if proxy.Port != int(port){
+					return false
+				}
+				_ = setUpdatedAt(proxy.Fingerprint)
+
 				log.Println("Accepted forward", host, port)
 				return true
-			}),
-			Addr: ":2222",
-			SessionRequestCallback: func(sess ssh.Session, requestType string) bool {
-				proxy,_ := pKeyMap[string(sess.PublicKey().Marshal())]
-
-				for _, command := range sess.Command(){
-					switch command {
-					case "allocate-reverse-port":
-						if proxy.Port == 0 || !freeport.CheckPortIsFree(proxy.Port) {
-							freePort, err := freeport.GetFreePort()
-							if err != nil {
-								log.Fatal(err)
-							}
-							log.Println("new port allocated", freePort)
-							proxy.Port = freePort
-						}
-						io.WriteString(sess, fmt.Sprintf("%d\n", proxy.Port))
-					}
-				}
-				return false
 			},
+			Addr: ":2222",
+			//SessionRequestCallback: func(sess ssh.Session, requestType string) bool {
+			//	proxy,_ := pKeyMap[string(sess.PublicKey().Marshal())]
+			//
+			//	for _, command := range sess.Command(){
+			//		switch command {
+			//		case "allocate-reverse-port":
+			//			if proxy.Port == 0 || !freeport.CheckPortIsFree(proxy.Port) {
+			//				freePort, err := freeport.GetFreePort()
+			//				if err != nil {
+			//					log.Fatal(err)
+			//				}
+			//				log.Println("new port allocated", freePort)
+			//				proxy.Port = freePort
+			//			}
+			//			io.WriteString(sess, fmt.Sprintf("%d\n", proxy.Port))
+			//		}
+			//	}
+			//	return false
+			//},
 			RequestHandlers: map[string]ssh.RequestHandler{
 				"tcpip-forward":        forwardHandler.HandleSSHRequest,
 				"cancel-tcpip-forward": forwardHandler.HandleSSHRequest,
 				"allocate-reverse-port": func(ctx ssh.Context, srv *ssh.Server, req *ssh2.Request) (ok bool, payload []byte) {
 					log.Println("start allocate-reverse-port")
-					proxy := ctx.Value("keyProxy").(*keyProxy)
+					proxy, err := getProxy(ctx)
+					if err != nil {
+						return false, []byte("")
+					}
 					if proxy.Port == 0 || !freeport.CheckPortIsFree(proxy.Port) {
 						freePort, err := freeport.GetFreePort()
 						if err != nil {
 							log.Fatal(err)
 						}
 						log.Println("new port allocated", freePort)
-						proxy.Port = freePort
+						err = setPort(proxy.Fingerprint, freePort)
+						if err != nil {
+							log.Fatal(err)
+						}
 					}
 					log.Println("allocating reverse port", proxy.Port)
 					return true, []byte(fmt.Sprintf("%d", proxy.Port))
 				},
 				"allocate-local-port": func(ctx ssh.Context, srv *ssh.Server, req *ssh2.Request) (ok bool, payload []byte) {
 					log.Println("start allocate-local-port")
-					proxy := ctx.Value("keyProxy").(*keyProxy)
+					proxy := ctx.Value("keyProxy").(*sshKeyProxy)
 					if proxy.Port == 0 {
 						return false, []byte("no ports are available\n")
 					}
@@ -97,18 +104,25 @@ func Start() {
 					return true, []byte(fmt.Sprintf("%d", proxy.Port))
 				},
 			},
-			ReversePortForwardingCallback: ssh.ReversePortForwardingCallback(func(ctx ssh.Context, host string, port uint32) bool {
-				// TODO check if can handle this port
-				log.Println("attempt to bind", host, port, "granted")
-				return true
-			}),
-			PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
-				log.Println("start PublicKeyHandler")
-				val,ok := pKeyMap[string(key.Marshal())]
-				if !ok {
+			ReversePortForwardingCallback: func(ctx ssh.Context, host string, port uint32) bool {
+				proxy, err := getProxy(ctx)
+				if err != nil {
 					return false
 				}
-				ctx.SetValue("keyProxy", val)
+				if proxy.Port != int(port){
+					return false
+				}
+				_ = setUpdatedAt(proxy.Fingerprint)
+				log.Println("attempt to bind", host, port, "granted")
+				return true
+			},
+			PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
+				log.Println("start PublicKeyHandler")
+				val, err := getByUserAndKey(ctx.User(), key.Marshal())
+				if err != nil {
+					return false
+				}
+				ctx.SetValue("keyProxy", &val)
 				return true
 			},
 		}
@@ -118,7 +132,7 @@ func Start() {
 }
 
 type HostResponse struct {
-	PKey *rsa.PrivateKey
+	PrivateKey string
 }
 
 var mutex sync.Mutex
@@ -137,21 +151,35 @@ func AllocateNewHost(fingerprint string) (HostResponse, error) {
 		return HostResponse{}, err
 	}
 
-	pKeyStr := string(publicKey.Marshal())
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		return HostResponse{}, err
+	}
 
-	err = addKey(sshKeyProxy{PublicKey: pKeyStr, Fingerprint: fingerprint})
+	err = addKey(sshKeyProxy{PublicKey: publicKey.Marshal(), Fingerprint: fingerprint, Port: port})
 	if err != nil {
 		return HostResponse{}, err
 	}
 
 	return HostResponse{
-		PKey: privatekey,
+		PrivateKey: toBase64PrivateKey(privatekey),
 	}, nil
 }
 
+func toBase64PrivateKey(key *rsa.PrivateKey)string{
+	privateKeyBytes := x509.MarshalPKCS1PrivateKey(key)
+	keyPem := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "RSA PRIVATE KEY",
+			Bytes: privateKeyBytes,
+		},
+	)
+	return base64.StdEncoding.EncodeToString(keyPem)
+}
+
 var insertOnTable = `
-INSERT INTO sshPair (fingerprint,publicKey)
-VALUES(?,?);
+INSERT INTO sshPair (fingerprint,publicKey, port, createdAt)
+VALUES(?,?,?,?);
 `
 
 func addKey(k sshKeyProxy)error{
@@ -160,16 +188,18 @@ func addKey(k sshKeyProxy)error{
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec(k.Fingerprint, k.PublicKey)
+	_, err = stmt.Exec(k.Fingerprint,base64.StdEncoding.EncodeToString(k.PublicKey), k.Port, time.Now())
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func getByKey(public string)(sshKeyProxy, error){
+func getByUserAndKey(user string, public []byte)(sshKeyProxy, error){
+	key := base64.StdEncoding.EncodeToString(public)
+
 	dbConn := db.Get()
-	row, err := dbConn.Query("SELECT fingerprint,publicKey FROM sshPair")
+	row, err := dbConn.Query("SELECT fingerprint,publicKey,port FROM sshPair WHERE fingerprint=? AND publicKey=?", user, key)
 	if err != nil {
 		return sshKeyProxy{}, err
 	}
@@ -178,12 +208,51 @@ func getByKey(public string)(sshKeyProxy, error){
 	for row.Next() {
 		var fingerprint string
 		var publicKey string
-		err = row.Scan(&fingerprint, &publicKey)
+		var port int
+		err = row.Scan(&fingerprint, &publicKey, &port)
 		if err != nil {
 			return sshKeyProxy{}, err
 		}
 
-		return sshKeyProxy{Fingerprint: fingerprint, PublicKey: public}, nil
+		publicDec, err := base64.StdEncoding.DecodeString(publicKey)
+		if err != nil {
+			return sshKeyProxy{}, err
+		}
+		return sshKeyProxy{Fingerprint: fingerprint, PublicKey: publicDec, Port: port}, nil
 	}
 	return sshKeyProxy{}, fmt.Errorf("no scan")
+}
+
+func setPort(fingerprint string, port int)error{
+	dbConn := db.Get()
+	stmt, err := dbConn.Prepare("UPDATE sshPair SET port=? WHERE fingerprint=?")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(port, fingerprint)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func setUpdatedAt(fingerprint string)error{
+	dbConn := db.Get()
+	stmt, err := dbConn.Prepare("UPDATE sshPair SET updatedAd=? WHERE fingerprint=?")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(time.Now(), fingerprint)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func getProxy(ctx ssh.Context)(*sshKeyProxy, error){
+	proxy := ctx.Value("keyProxy")
+	if proxy == nil {
+		return nil, fmt.Errorf("cannot find proxy")
+	}
+	return proxy.(*sshKeyProxy), nil
 }

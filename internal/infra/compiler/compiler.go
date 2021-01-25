@@ -14,7 +14,7 @@ import (
 )
 
 type MakeRequest struct {
-	PKey        *rsa.PrivateKey
+	PKey        string
 	FingerPrint string
 	Port        int
 }
@@ -45,24 +45,25 @@ func Make(req MakeRequest)(MakeResponse, error){
 	}
 
 	if os.Getenv("LOG_KEY") == "true"{
-		log.Println("\nkey: ", getLdFlagFromKey(req.PKey), "\nfingerprint: ", req.FingerPrint)
+		log.Println("\nkey: ", req.PKey, "\nfingerprint: ", req.FingerPrint)
 	}
 
 	return MakeResponse{FingerPrint: req.FingerPrint}, nil
 }
 
 func compile(req MakeRequest, k string)error{
-
-	certFlag := getLdFlagFromKey(req.PKey)
-
-	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s", req.FingerPrint, certFlag)
+	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s -X main.Kind=%s -X main.SshHost=%s", req.FingerPrint, req.PKey, k, os.Getenv("FLOXY_SSH_HOST"))
 
 	compStr, err := gexec.Build("internal/cook/main.go","-ldflags",ldFlags)
 	if err != nil {
 		return err
 	}
 
-	newLocation := filepath.Join("internal", "home", "cooked_bin", req.FingerPrint, k)
+	name := "floxyL"
+	if k == "remote"{
+		name = "floxyR"
+	}
+	newLocation := filepath.Join("internal", "home", "cooked_bin", req.FingerPrint, name)
 
 	path := filepath.Join("internal", "home", "cooked_bin",req.FingerPrint)
 	if _, err := os.Stat(path); os.IsNotExist(err) {

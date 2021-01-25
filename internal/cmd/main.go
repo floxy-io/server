@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/danielsussa/floxy/internal/home"
+	"github.com/danielsussa/floxy/internal/infra/db"
 	"github.com/danielsussa/floxy/internal/sshserver"
 	"log"
 	"os"
@@ -12,6 +13,11 @@ import (
 
 func main(){
 	ctx := context.Background()
+
+	err := db.Setup()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	home.Start()
 	sshserver.Start()

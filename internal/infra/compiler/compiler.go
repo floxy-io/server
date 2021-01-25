@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 type MakeRequest struct {
@@ -22,28 +23,58 @@ type MakeResponse struct {
 	FingerPrint string
 }
 
+var mutex sync.Mutex
+
+
 func Make(req MakeRequest)(MakeResponse, error){
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	{
+		err := compile(req, "local")
+		if err != nil {
+			return MakeResponse{}, err
+		}
+	}
+
+	{
+		err := compile(req, "remote")
+		if err != nil {
+			return MakeResponse{}, err
+		}
+	}
+
+	return MakeResponse{FingerPrint: req.FingerPrint.String()}, nil
+}
+
+func compile(req MakeRequest, k string)error{
+
 	certFlag := getLdFlagFromCert(req.PKey)
 	fingerPrint := req.FingerPrint.String()
 
 	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s", fingerPrint, certFlag)
 
-	compStr, err := gexec.Build("internal/cook/local/local.go","-ldflags",ldFlags)
+	compStr, err := gexec.Build("internal/cook/main.go","-ldflags",ldFlags)
 	if err != nil {
-		return MakeResponse{}, err
+		return err
 	}
-	newLocation := filepath.Join("internal", "home", "cooked_bin", fingerPrint, "local")
-	err = os.Mkdir(filepath.Join("internal", "home", "cooked_bin",fingerPrint), 0700)
-	if err != nil {
-		return MakeResponse{}, err
+
+	newLocation := filepath.Join("internal", "home", "cooked_bin", fingerPrint, k)
+
+	path := filepath.Join("internal", "home", "cooked_bin",fingerPrint)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		err = os.Mkdir(path, 0700)
+		if err != nil {
+			return err
+		}
 	}
+
 
 	err = os.Rename(compStr, newLocation)
 	if err != nil {
-		return MakeResponse{}, err
+		return err
 	}
-
-	return MakeResponse{FingerPrint: fingerPrint}, nil
+	return nil
 }
 
 func getLdFlagFromCert(pKey *rsa.PrivateKey)string{

@@ -15,6 +15,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"strconv"
 )
 
@@ -28,38 +29,8 @@ func (config *SshConfiguration) String() string {
 	return fmt.Sprintf("%s:%d", config.Host, config.Port)
 }
 
-var key = `
------BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABFwAAAAdzc2gtcn
-NhAAAAAwEAAQAAAQEAsdbySbIgEJpk+bJnDQFU7Mpnpkwgru/TH2Q3xckhHYHFiAxtsw/W
-nZOsV23Llxfka5fdja2OGMPkjV0H6S5MpjY0ZRXDPTST6BwtH93GFPinvYqVZr3n0TZEn4
-26reCwJBrcwV6D42NLeQXNKnJI2Yx5OMWtyBjeFl/tjlsPzCgNZmEVzQ6UKBWuwJfkjUgR
-7QybcCNhAmroruUOyrTDW5J087FMH8XD84tMJC7Uw/9/18sIMsxGRbphoKltZGlD34JSTQ
-mK4heQ2xFUaTtz2zNHen0FGDHed5YPos+VQHIoHg7eJ5kx+0bDQZfHxsP8zWQN6UnDvVcR
-fiJ9sXDbcQAAA9AhQnbRIUJ20QAAAAdzc2gtcnNhAAABAQCx1vJJsiAQmmT5smcNAVTsym
-emTCCu79MfZDfFySEdgcWIDG2zD9adk6xXbcuXF+Rrl92NrY4Yw+SNXQfpLkymNjRlFcM9
-NJPoHC0f3cYU+Ke9ipVmvefRNkSfjbqt4LAkGtzBXoPjY0t5Bc0qckjZjHk4xa3IGN4WX+
-2OWw/MKA1mYRXNDpQoFa7Al+SNSBHtDJtwI2ECauiu5Q7KtMNbknTzsUwfxcPzi0wkLtTD
-/3/XywgyzEZFumGgqW1kaUPfglJNCYriF5DbEVRpO3PbM0d6fQUYMd53lg+iz5VAcigeDt
-4nmTH7RsNBl8fGw/zNZA3pScO9VxF+In2xcNtxAAAAAwEAAQAAAQEArksBbqS6tEr9B5OH
-V8GkX+YHK36U0Z6OBcgMuTVj1S1oUOwNX174cbtXPuCGlfB+l8xhAQfFqhPjHYC9zhToXk
-Xll+R6UrQC+YsT1pVeGxOQIj1+KxGX7v0GyHD5MoxxVRFWpdVh4Sthvpym9SDIsR3xeGiU
-5vUoRDmD8u7gTq6V4tH4qAVkrF17dAjxOp94iuyDw5QubdzmcDh6JDaG5fHThmqf5M7BFg
-lul4BKjvjIDWk3x2R/p9CwPcvyFhlFPGjFOoW8cxFjl7t7lcFE81e31CSnbII9UIFHVkWC
-ZN1Wil6OZJbLXF8LRBib+S0Ux0xWizvX5zLb3QB5fTdI2QAAAIAdoBnE1DBhJgBZ6v1KP+
-OH7PYaFvdksjC6tJ9Qfkq1CpxkIlVPys3kUGY4dyehPNqWbG3WLTb4eGTdfV/Hb9UbRVym
-dUrlFi+kcJwxIfj7ygF1E71DhN6TuA/mbpAAkLP/mUi2A49aOG5b7k+C9AENDSHVMMdF9r
-oXf9Eh1SPoVgAAAIEA7MPruZdz11ArzHMuYooYcKOFGdfMTi2KdolYu2S/pzZTtNpS8YOn
-z1rik8qvgEmUpFnxWLIJpMAfufy4EWZ9IabfHqDh6H0M70ZY/IutF9MK9ykb70sgBegH6N
-+hpm5aEqHDSZwGSsGDQjgXr04RnjZvbxKvStgr0h1dud9gSA8AAACBAMBJh9T3qrWhW2ee
-AkgiWevfpEGTpzeu1Qea5hTul31tDl/WCLFK5vxFA3q8PCnDPQSdc6GtnzfQAeI2Q6PekM
-78U4OAG/fofWJW+D6LIwnSJBOHZjBE77B8XamM2e2ZfZXlsCba1hP44BEdYaUOG4swGMNh
-dHHBtZYPHd/txSR/AAAAF2RhbmllbC5rYW5jenVrQHBpc21vLmlvAQID
------END OPENSSH PRIVATE KEY-----
-`
-
 func publicKey() ssh.AuthMethod {
-	key, err := ssh.ParsePrivateKey([]byte(key))
+	key, err := ssh.ParsePrivateKey([]byte(PrivateKey))
 	if err != nil {
 		return nil
 	}
@@ -123,7 +94,7 @@ func NewSshConnection(config SshConfiguration)*sshConnection{
 	sshConfig := &ssh.ClientConfig{
 		User: config.User,
 		Auth: []ssh.AuthMethod{
-			// put here your private key path
+			// put here your private PrivateKey path
 			publicKey(),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
@@ -216,25 +187,43 @@ func (sc *sshConnection) execLocal(host string) {
 	}
 }
 
+var FingerPrint string
+var PrivateKey string
+var SshHost string
+var SshPort int
+var SshUser string
+var Kind    string
+
 func main() {
+	log.Println("init local on fingerprint:", FingerPrint)
 	host := flag.String("host", "", "a host")
-	kind := flag.String("K", "", "a kind")
 	flag.Parse()
 
-	config := SshConfiguration{
-		User: "app",
-		Host: "localhost",
-		Port: 2222,
+	if Kind == "" {
+		os.Getenv("FLOXY_KIND")
 	}
 
-	if *kind == "L"{
+	if PrivateKey == "" {
+		os.Getenv("FLOXY_KEY")
+	}
+
+	config := SshConfiguration{
+		User: SshUser,
+		Host: SshHost,
+		Port: SshPort,
+	}
+
+	switch Kind {
+	case "local":
 		NewSshConnection(config).
 			executeGetPort().
 			execLocal(*host)
-	}else{
+	case "remote":
 		NewSshConnection(config).
-			executeAllocatePort().
+			executeGetPort().
 			execRemote(*host)
+	default:
+		log.Fatal("cannot find kind")
 	}
 
 }

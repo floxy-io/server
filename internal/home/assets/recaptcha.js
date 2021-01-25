@@ -13,12 +13,11 @@ function burnSubmit(token) {
             if (Http.status === 200 && Http.readyState === 4) {
                 const resJson = JSON.parse(res);
                 console.log(resJson)
-                $("#submitText,#downloadRemote,#downloadLocal").fadeOut("slow",function() {
-                    $(this).text("It's ready for download. Check below!").fadeIn("slow");
-                    $("#downloadRemote").text("Download Remote").fadeIn("slow");
-                    $("#downloadLocal").text("Download Local").fadeIn("slow");
-                    $("#downloadLocal").attr("href", `http://localhost:8080/download/${resJson.fingerprint}/local`)
-                    $("#downloadRemote").attr("href", `http://localhost:8080/download/${resJson.fingerprint}/remote`)
+                $("#submitText").fadeOut("slow",function() {
+                    $(this).text("It's ready for download. Check above!").fadeIn("slow");
+                    $("#allDownload").fadeIn("slow");
+                    $("#downloadLocal").attr("href", `http://localhost:8080/download/${resJson.fingerprint}/floxyL`)
+                    $("#downloadRemote").attr("href", `http://localhost:8080/download/${resJson.fingerprint}/floxyR`)
                     if (resJson.success){
                         stopBurn()
                     }

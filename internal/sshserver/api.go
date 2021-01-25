@@ -10,6 +10,7 @@ import (
 	ssh2 "golang.org/x/crypto/ssh"
 	"io"
 	"log"
+	"sync"
 )
 
 type keyProxy struct {
@@ -129,7 +130,12 @@ type HostResponse struct {
 	Port int
 }
 
+var mutex sync.Mutex
+
 func AllocateNewHost()(HostResponse, error){
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	freePort, err := freeport.GetFreePort()
 	if err != nil {
 		return HostResponse{}, err

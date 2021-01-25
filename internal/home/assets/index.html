@@ -20,7 +20,14 @@
 <body>
 
     <canvas id='canvas'></canvas>
-    <img src="home.png" style="max-width: 100%;" alt="Floxy" width="770" height="264">
+    <div style="width: 770px;height: 264px;position: relative">
+        <p id="allDownload" style="position: absolute;left: 200px;top: 200px" hidden>
+            <span style="padding: 80px">Download both<a id="downloadLocal" href="#"><code>FloxyL</code></a>and<a id="downloadRemote"><code>FLoxyR</code></a>!</span>
+            <br>
+            <span>Or<code>click here</code>to share both binaries</span>
+        </p>
+        <img src="home.png" alt="Floxy" width="770" height="264">
+    </div>
     <h2>A<code>simple</code>one-a-one<code>secure</code>connection</h2>
     <p><strong>Floxy</strong> is a simple service that allow <code>end-to-end ultra secure connection</code> between a remote and a local machine.
         Zero configuration, no need to disable/configure firewall or change router settings, only one click and it's ready!
@@ -36,6 +43,11 @@
     Comparing it with Ngrok and other proxies services, <strong>Floxy</strong> don't expose remote machine over the internet, only
     who owns the local binary can connect to the remote. So, <strong>Let's start?</strong></p>
 
+    <div style="display: flex;">
+        <pre style="margin-right: 20px;">local>./floxyL -p 5555</pre>
+        <pre>remote>./floxyR -h localhost:22</pre>
+    </div>
+
     <p style="text-align: center">
         <button id="submitBtn" style="width: 400px;"
                 class="g-recaptcha"
@@ -46,11 +58,6 @@
             <span id="submitText">Cook new Floxy</span>
         </button>
     </p>
-
-    <div style="display: flex;">
-        <pre style="margin-right: 20px;"><a id="downloadLocal" href="#" style="color: #272d42">local>./floxyL -p 5555</a></pre>
-        <pre><a id="downloadRemote" href="#" style="color: #272d42">remote>./floxyR -h localhost:22</a></pre>
-    </div>
 
     <footer><a href=https://gist.github.com/tomhodgins/e330ec1826d1cde2b8b0>Github</a> for more details</footer>
 </body>

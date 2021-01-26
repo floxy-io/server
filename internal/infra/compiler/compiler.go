@@ -59,6 +59,7 @@ func compile(req MakeRequest, k string)error{
 	var err error
 	var compStr string
 	if CustomGoPath != "" {
+		fmt.Println("using custom Gopath: ", CustomGoPath)
 		compStr, err = gexec.BuildIn(CustomGoPath,"internal/cook/main.go","-ldflags",ldFlags)
 	}else {
 		compStr, err = gexec.Build("internal/cook/main.go","-ldflags",ldFlags)

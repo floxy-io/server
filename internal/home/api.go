@@ -19,10 +19,16 @@ func Shutdown(ctx context.Context)error{
 	return e.Shutdown(ctx)
 }
 
+var AssetsPath string
+
 func Start(){
+	if AssetsPath == ""{
+		AssetsPath = "internal/home/assets"
+	}
+	fmt.Println("using path: ", AssetsPath)
 	go func(){
 		e = echo.New()
-		e.Static("/", "internal/home/assets")
+		e.Static("/", AssetsPath)
 		e.GET("/download/:fingerprint/:kind", downloadBinary)
 		e.POST("/burn", burn)
 		e.Logger.Fatal(e.Start(":8080"))

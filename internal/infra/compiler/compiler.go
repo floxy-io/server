@@ -51,13 +51,22 @@ func Make(req MakeRequest)(MakeResponse, error){
 	return MakeResponse{FingerPrint: req.FingerPrint}, nil
 }
 
+var CustomGoPath string
+
 func compile(req MakeRequest, k string)error{
 	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s -X main.Kind=%s -X main.SshHost=%s", req.FingerPrint, req.PKey, k, os.Getenv("FLOXY_SSH_HOST"))
 
-	compStr, err := gexec.Build("internal/cook/main.go","-ldflags",ldFlags)
+	var err error
+	var compStr string
+	if CustomGoPath != "" {
+		compStr, err = gexec.BuildIn(CustomGoPath,"internal/cook/main.go","-ldflags",ldFlags)
+	}else {
+		compStr, err = gexec.Build("internal/cook/main.go","-ldflags",ldFlags)
+	}
 	if err != nil {
 		return err
 	}
+
 
 	name := "floxyL"
 	if k == "remote"{

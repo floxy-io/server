@@ -52,17 +52,21 @@ func Make(req MakeRequest)(MakeResponse, error){
 }
 
 var CustomGoPath string
+var CustomPath string
 
 func compile(req MakeRequest, k string)error{
 	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s -X main.Kind=%s -X main.SshHost=%s", req.FingerPrint, req.PKey, k, os.Getenv("FLOXY_SSH_HOST"))
 
+	if CustomPath == "" {
+		CustomPath = "internal/cook/main.go"
+	}
 	var err error
 	var compStr string
 	if CustomGoPath != "" {
 		fmt.Println("using custom Gopath: ", CustomGoPath)
-		compStr, err = gexec.BuildIn(CustomGoPath,"internal/cook/main.go","-ldflags",ldFlags)
+		compStr, err = gexec.BuildIn(CustomGoPath,CustomPath,"-ldflags",ldFlags)
 	}else {
-		compStr, err = gexec.Build("internal/cook/main.go","-ldflags",ldFlags)
+		compStr, err = gexec.Build(CustomPath,"-ldflags",ldFlags)
 	}
 	if err != nil {
 		return err

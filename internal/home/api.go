@@ -29,9 +29,9 @@ func Start(){
 	go func(){
 		e = echo.New()
 		e.Static("/", AssetsPath)
-		e.GET("/download/:fingerprint/:kind", downloadBinary)
+		e.GET("/api/download/:fingerprint/:kind", downloadBinary)
 		e.GET("/internal/hosts", getAllHosts)
-		e.POST("/burn", burn)
+		e.POST("/api/burn", burn)
 		e.Logger.Fatal(e.Start(":8080"))
 	}()
 }

@@ -6,7 +6,7 @@ function burnSubmit(token) {
         $(this).text("...cooking binary!").fadeIn("slow");
 
         startBurn()
-        Http.open("POST", 'http://localhost:8080/burn?token=' + token);
+        Http.open("POST", 'http://localhost:8080/api/burn?token=' + token);
         Http.send();
         Http.onreadystatechange = (e) => {
             const res = Http.responseText;
@@ -17,8 +17,8 @@ function burnSubmit(token) {
                         stopBurn()
                         $(this).text("It's ready for download. Check above!").fadeIn("slow");
                         $("#allDownload").fadeIn("slow");
-                        $("#downloadLocal").attr("href", `http://localhost:8080/download/${resJson.fingerprint}/floxyL`)
-                        $("#downloadRemote").attr("href", `http://localhost:8080/download/${resJson.fingerprint}/floxyR`)
+                        $("#downloadLocal").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxyL`)
+                        $("#downloadRemote").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxyR`)
                     }else {
                         $(this).text("Sorry... some error occurred =(").fadeIn("slow");
                         stopBurn()

@@ -30,6 +30,7 @@ func Start(){
 		e = echo.New()
 		e.Static("/", AssetsPath)
 		e.GET("/download/:fingerprint/:kind", downloadBinary)
+		e.GET("/internal/hosts", getAllHosts)
 		e.POST("/burn", burn)
 		e.Logger.Fatal(e.Start(":8080"))
 	}()
@@ -44,6 +45,15 @@ func downloadBinary(c echo.Context) error{
 type burnResponse struct {
 	Success bool `json:"success"`
 	Fingerprint string `json:"fingerprint"`
+}
+
+func getAllHosts(c echo.Context)error{
+	sshHosts, err := sshserver.GetAll()
+	if err != nil {
+		log.Println(err)
+		return c.String(400, err.Error())
+	}
+	return c.JSON(200, sshHosts)
 }
 
 func burn(c echo.Context) error{

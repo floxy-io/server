@@ -223,6 +223,33 @@ func getByUserAndKey(user string, public []byte)(sshKeyProxy, error){
 	return sshKeyProxy{}, fmt.Errorf("no scan")
 }
 
+func GetAll() ([]sshKeyProxy, error){
+	sshAll := make([]sshKeyProxy, 0)
+	dbConn := db.Get()
+	row, err := dbConn.Query("SELECT fingerprint,publicKey,port FROM sshPair")
+	if err != nil {
+		return sshAll, err
+	}
+	defer row.Close()
+
+	for row.Next() {
+		var fingerprint string
+		var publicKey string
+		var port int
+		err = row.Scan(&fingerprint, &publicKey, &port)
+		if err != nil {
+			return sshAll, err
+		}
+
+		publicDec, err := base64.StdEncoding.DecodeString(publicKey)
+		if err != nil {
+			return sshAll, err
+		}
+		sshAll = append(sshAll, sshKeyProxy{Fingerprint: fingerprint, PublicKey: publicDec, Port: port})
+	}
+	return sshAll, nil
+}
+
 func setPort(fingerprint string, port int)error{
 	dbConn := db.Get()
 	stmt, err := dbConn.Prepare("UPDATE sshPair SET port=? WHERE fingerprint=?")

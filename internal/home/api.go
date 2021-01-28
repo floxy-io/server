@@ -29,6 +29,7 @@ func Start(){
 	go func(){
 		e = echo.New()
 		e.Static("/", AssetsPath)
+		e.Static("/burn", AssetsPath)
 		e.GET("/api/download/:fingerprint/:kind", downloadBinary)
 		e.GET("/internal/hosts", getAllHosts)
 		e.POST("/api/burn", burn)

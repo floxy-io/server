@@ -2,18 +2,18 @@ var canvas;
 var ctx;
 var config = {
     sparkFreq: 1,
-    meanSparkSize: 0.012,
-    meanSparkLife: 200,
+    meanSparkSize: 0.008,
+    meanSparkLife: 400,
     meanSparkVelocity: [ 2, 6 ],
     sparkSizeVariation: 5,
     sparkBlink: 10, // Lower is more blink
-    floorHeight: 0.15,
+    floorHeight: 0.02,
     cVar: [100,100,0]
 };
 
 var resize = window.resize = function() {
-    canvas.height = 320;
-    canvas.width = 770;
+    canvas.height = document.body.clientHeight;
+    canvas.width = window.innerWidth;
 };
 
 function startBurn() {
@@ -31,7 +31,8 @@ window.onload = function() {
     ctx = canvas.getContext('2d');
     resize();
 
-    config.meanSparkSize = canvas.width*config.meanSparkSize;
+    config.meanSparkSize = document.body.clientHeight / 80;
+    config.meanSparkLife = document.body.clientWidth;
 
     var fire = new Fire(ctx, canvas, canvas.height-canvas.height*config.floorHeight, config);
 
@@ -112,4 +113,8 @@ Spark.prototype.update = function() {
     this.ctx.rect(this.pos[0], this.pos[1], this.size, this.size);
     this.ctx.fillStyle = 'rgba('+this.c[1]+', '+this.c[2]+', '+this.c[0]+', '+this.getAlpha()+')';
     this.ctx.fill();
+};
+
+window.onresize = function(event) {
+    this.resize();
 };

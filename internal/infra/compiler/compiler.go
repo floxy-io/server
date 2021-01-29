@@ -63,7 +63,7 @@ func compile(req MakeRequest, k string)error{
 	var err error
 	var compStr string
 	if CustomGoPath != "" {
-		fmt.Println("using custom Gopath: ", CustomGoPath)
+		log.Println("using custom Gopath: ", CustomGoPath)
 		compStr, err = gexec.BuildIn(CustomGoPath,CustomPath,"-ldflags",ldFlags)
 	}else {
 		compStr, err = gexec.Build(CustomPath,"-ldflags",ldFlags)

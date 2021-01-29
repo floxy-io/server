@@ -13,6 +13,8 @@ import (
 
 func main(){
 	ctx := context.Background()
+	startLog()
+	log.Println("start log!")
 
 	err := db.Setup()
 	if err != nil {
@@ -33,4 +35,15 @@ func main(){
 		log.Fatal(ctx, err.Error())
 	}
 
+}
+
+func startLog(){
+	file, err := os.OpenFile("build/floxy.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer file.Close()
+
+	log.SetOutput(file)
 }

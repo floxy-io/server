@@ -25,7 +25,7 @@ func Start(){
 	if AssetsPath == ""{
 		AssetsPath = "internal/home/assets"
 	}
-	fmt.Println("using path: ", AssetsPath)
+	log.Println("using path: ", AssetsPath)
 	go func(){
 		e = echo.New()
 		e.Static("/", AssetsPath)
@@ -40,7 +40,7 @@ func Start(){
 
 func downloadBinary(c echo.Context) error{
 	file := fmt.Sprintf("internal/home/cooked_bin/%s/%s", c.Param("fingerprint"), c.Param("kind"))
-	fmt.Println(file)
+	log.Println(file)
 	return c.File(file)
 }
 

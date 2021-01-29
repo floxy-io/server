@@ -17,6 +17,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 )
 
 var FingerPrint string
@@ -25,7 +26,7 @@ var SshHost string
 var Kind    string
 
 func main() {
-	proxyHost := flag.String("host", "localhost:7467", "a proxyHost")
+	proxyHost := flag.String("host", "", "a proxyHost")
 
 	flag.Parse()
 
@@ -78,6 +79,14 @@ type remoteProxyConfig struct {
 }
 
 func startRemoteProxy(config remoteProxyConfig) error{
+	if config.ProxyHost == nil || *config.ProxyHost == "" {
+		log.Fatal("Must use flag -host host:port")
+	}
+	if len(strings.Split(*config.ProxyHost, ":")) != 2 {
+		log.Fatal("You must specify host:port")
+	}
+
+	// ssh config
 	sshConfig := &ssh.ClientConfig{
 		User: config.Fingerprint,
 		Auth: []ssh.AuthMethod{
@@ -146,6 +155,14 @@ type localProxyConfig struct {
 }
 
 func startLocalProxy(config localProxyConfig) error{
+	if config.ProxyHost == nil || *config.ProxyHost == "" {
+		log.Fatal("Must use flag -host host:port")
+	}
+	if len(strings.Split(*config.ProxyHost, ":")) != 2 {
+		log.Fatal("You must specify host:port")
+	}
+
+	// ssh config
 	sshConfig := &ssh.ClientConfig{
 		User: config.Fingerprint,
 		Auth: []ssh.AuthMethod{

@@ -32,28 +32,64 @@
     </div>
 
     <div id="burn">
-        <div style="display: flex;padding: 15px;text-align: center;">
+        <div style="padding: 15px;text-align: center;">
             <h2>Great, let's do it!</h2>
         </div>
         <div style="display: flex;padding: 15px;text-align: center;">
-            <p>Floxy is based on ssh tunneling. Our service will create an unique binary with fingerprint and
+            <p>Floxy is based on <code>ssh tunneling</code>. Our service will create an <code>unique binary</code> with fingerprint and
                 async certificate to close a connection between your PC and a remote. We just need only a few information:
             </p>
         </div>
         <div style="display: flex;padding: 15px; flex-wrap: wrap; justify-content: center;">
             <div style="text-align: center; padding: 1em;">
-                <p>binary expiration</p>
-                <p>1 hour</p>
+                <p style="margin-bottom: -0.6em">binary expiration</p>
+                <p class="noselect"><a id="binaryExpSelector" onclick="binaryExpSelector()">select</a></p>
             </div>
             <div style="text-align: center; padding: 1em;">
-                <p>local distro</p>
-                <p>linux</p>
+                <p style="margin-bottom: -0.6em">local distro</p>
+                <p class="noselect"><a id="localDistroSelector" onclick="localDistroSelector()">select</a></p>
             </div>
             <div style="text-align: center; padding: 1em;">
-                <p>remote distro</p>
-                <p>linux</p>
+                <p style="margin-bottom: -0.6em">remote distro</p>
+                <p class="noselect"><a id="remoteDistroSelector" onclick="remoteDistroSelector()">select</a></p>
             </div>
         </div>
+        <div id="burnButtonContainer" style="text-align: center" hidden>
+            <button id="submitBtn" style="width: 400px;"
+                    class="g-recaptcha"
+                    data-sitekey="6LeUMCMaAAAAABmP3FZtGTOFcGDgpGR0Z0pI7j2R"
+                    data-callback='burnSubmit'
+                    data-theme="dark"
+                    data-button="outline">
+                <span>Burn New Floxy</span>
+            </button>
+
+        </div>
+    </div>
+
+    <div id="burning" style="display: flex;width: 100%;height: 100%;justify-content: center;align-items: center;padding: 15px;">
+        <div id="burnInProcess" style="display: block">
+            <h3>Wait! We are burning a new Floxy Binary</h3>
+        </div>
+        <div id="burnNotApprove" style="display: none">
+            <h3>We couldn't approve this captcha</h3>
+        </div>
+    </div>
+
+    <div id="sharePage">
+        <div style="padding: 15px;text-align: center;">
+            <h2>download & share!</h2>
+        </div>
+        <div style="display: block;padding: 25px;">
+            <p><code>local>./floxyL -h {{host:ip}}</code></p>
+            <p style="margin-top: -0.1em;"><a id="copyLocalLink" href="#">click here</a> to download Local binary</p>
+        </div>
+
+        <div style="display: block;padding: 25px;">
+            <p><code>remote>./floxyR -h {{host:ip}}</code></p>
+            <p style="margin-top: -0.1em;"><a id="copyRemoteLink" href="#">click here</a> to download Remote binary</p>
+        </div>
+
     </div>
 
 </body>

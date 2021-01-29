@@ -30,6 +30,7 @@ func Start(){
 		e = echo.New()
 		e.Static("/", AssetsPath)
 		e.Static("/burn", AssetsPath)
+		e.Static("/share/:fingerprint", AssetsPath)
 		e.GET("/api/download/:fingerprint/:kind", downloadBinary)
 		e.GET("/internal/hosts", getAllHosts)
 		e.POST("/api/burn", burn)
@@ -44,7 +45,7 @@ func downloadBinary(c echo.Context) error{
 }
 
 type burnResponse struct {
-	Success bool `json:"success"`
+	Status      string `json:"status"`
 	Fingerprint string `json:"fingerprint"`
 }
 
@@ -61,13 +62,10 @@ func burn(c echo.Context) error{
 	{
 		res, err := recaptcha.Get(c.QueryParam("token"))
 		if err != nil || !res.Success{
-			return c.String(200, "nok")
+			return c.JSON(200, burnResponse{Status: "non_approve"})
 		}
 		if res.Score < 0.5 {
-			return c.String(200, "nok")
-		}
-		if res.Score < 0.9 {
-			return c.String(200, "challenge")
+			return c.JSON(200, burnResponse{Status: "non_approve"})
 		}
 	}
 
@@ -75,7 +73,7 @@ func burn(c echo.Context) error{
 	serverHost, err := sshserver.AllocateNewHost(fingerPrint)
 	if err != nil{
 		log.Println(err)
-		return c.JSON(200, burnResponse{Success: false})
+		return c.JSON(200, burnResponse{Status: "ssh_err"})
 	}
 
 	binaryRes, err := compiler.Make(compiler.MakeRequest{
@@ -85,8 +83,8 @@ func burn(c echo.Context) error{
 
 	if err != nil{
 		log.Println(err)
-		return c.JSON(200, burnResponse{Success: false})
+		return c.JSON(200, burnResponse{Status: "bin_err"})
 	}
 
-	return c.JSON(200, burnResponse{Success: true, Fingerprint: binaryRes.FingerPrint})
+	return c.JSON(200, burnResponse{Status: "approved", Fingerprint: binaryRes.FingerPrint})
 }

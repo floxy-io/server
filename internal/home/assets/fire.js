@@ -18,8 +18,12 @@ var resize = window.resize = function() {
 
 function startBurn() {
     config.cVar = [0,250,0]
-    config.sparkFreq = 2;
-    config.meanSparkSize = 10;
+    config.sparkFreq *= 2;
+}
+
+function greenBurn() {
+    config.cVar = [0,0,70]
+    config.sparkFreq = 0.02;
 }
 
 function stopBurn() {

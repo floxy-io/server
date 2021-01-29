@@ -58,7 +58,7 @@ func compile(req MakeRequest, k string)error{
 	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s -X main.Kind=%s -X main.SshHost=%s", req.FingerPrint, req.PKey, k, os.Getenv("FLOXY_SSH_HOST"))
 
 	if CustomPath == "" {
-		CustomPath = "internal/cook/main.go"
+		CustomPath = "internal/cook/cook.go"
 	}
 	var err error
 	var compStr string

@@ -46,31 +46,11 @@ func Start() {
 				if proxy.Port != int(port){
 					return false
 				}
-				_ = setUpdatedAt(proxy.Fingerprint)
 
 				log.Println("Accepted forward", host, port)
 				return true
 			},
 			Addr: ":2222",
-			//SessionRequestCallback: func(sess ssh.Session, requestType string) bool {
-			//	proxy,_ := pKeyMap[string(sess.PublicKey().Marshal())]
-			//
-			//	for _, command := range sess.Command(){
-			//		switch command {
-			//		case "allocate-reverse-port":
-			//			if proxy.Port == 0 || !freeport.CheckPortIsFree(proxy.Port) {
-			//				freePort, err := freeport.GetFreePort()
-			//				if err != nil {
-			//					log.Fatal(err)
-			//				}
-			//				log.Println("new port allocated", freePort)
-			//				proxy.Port = freePort
-			//			}
-			//			io.WriteString(sess, fmt.Sprintf("%d\n", proxy.Port))
-			//		}
-			//	}
-			//	return false
-			//},
 			RequestHandlers: map[string]ssh.RequestHandler{
 				"tcpip-forward":        forwardHandler.HandleSSHRequest,
 				"cancel-tcpip-forward": forwardHandler.HandleSSHRequest,
@@ -78,17 +58,20 @@ func Start() {
 					log.Println("start allocate-reverse-port")
 					proxy, err := getProxy(ctx)
 					if err != nil {
+						log.Println("error get proxy: ", err)
 						return false, []byte("")
 					}
 					if proxy.Port == 0 || !freeport.CheckPortIsFree(proxy.Port) {
 						freePort, err := freeport.GetFreePort()
 						if err != nil {
-							log.Fatal(err)
+							log.Println("error allocate port: ", err)
+							return false, []byte("error allocate port")
 						}
 						log.Println("new port allocated", freePort)
 						err = setPort(proxy.Fingerprint, freePort)
 						if err != nil {
-							log.Fatal(err)
+							log.Println("error to set port: ", err)
+							return false, []byte("error to set port")
 						}
 					}
 					log.Println("allocating reverse port", proxy.Port)
@@ -104,6 +87,11 @@ func Start() {
 					return true, []byte(fmt.Sprintf("%d", proxy.Port))
 				},
 			},
+			ChannelHandlers: map[string]ssh.ChannelHandler{
+				"direct-tcpip": func(srv *ssh.Server, conn *ssh2.ServerConn, newChan ssh2.NewChannel, ctx ssh.Context) {
+					ssh.DirectTCPIPHandler(srv, conn, newChan, ctx)
+				},
+			},
 			ReversePortForwardingCallback: func(ctx ssh.Context, host string, port uint32) bool {
 				proxy, err := getProxy(ctx)
 				if err != nil {
@@ -113,20 +101,20 @@ func Start() {
 					return false
 				}
 				_ = setUpdatedAt(proxy.Fingerprint)
-				log.Println("attempt to bind", host, port, "granted")
+				log.Println("attempt to bind reverse", host, port, "granted")
 				return true
 			},
 			PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 				log.Println("start PublicKeyHandler")
 				val, err := getByUserAndKey(ctx.User(), key.Marshal())
 				if err != nil {
+					log.Println("cannot find user: ", err)
 					return false
 				}
 				ctx.SetValue("keyProxy", &val)
 				return true
 			},
 		}
-
 		log.Fatal(server.ListenAndServe())
 	}()
 }

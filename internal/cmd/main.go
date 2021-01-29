@@ -13,7 +13,7 @@ import (
 
 func main(){
 	ctx := context.Background()
-	startLog()
+	//startLog()
 	log.Println("start log!")
 
 	err := db.Setup()

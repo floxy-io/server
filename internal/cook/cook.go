@@ -18,6 +18,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 var FingerPrint string
@@ -134,15 +135,13 @@ func startRemoteProxy(config remoteProxyConfig) error{
 func handleConn(serverConn , proxyConn net.Conn) {
 	waitUntilEnd := make(chan bool)
 	go func() {
-		_, err := io.Copy(serverConn, proxyConn)
-		fmt.Println("end serverConn, proxyConn", err)
+		_, _ = io.Copy(serverConn, proxyConn)
 		serverConn.Close()
 		waitUntilEnd <- true
 
 	}()
 
 	_, err := io.Copy(proxyConn, serverConn)
-	fmt.Println("end proxyConn, serverConn", err)
 	proxyConn.Close()
 	<- waitUntilEnd
 }
@@ -174,13 +173,13 @@ func startLocalProxy(config localProxyConfig) error{
 	// Connect to SSH remote server using serverEndpoint
 	serverClient, err := ssh.Dial("tcp", config.SshHost, sshConfig)
 	if err != nil {
-		return fmt.Errorf("dial INTO remote server error: %s", err)
+		return fmt.Errorf("(%s) dial INTO remote server error: %s", time.Now(), err)
 	}
 
 	// allocate port
 	ok, b, err := serverClient.SendRequest("allocate-local-port", true, nil)
 	if err != nil {
-		return fmt.Errorf("cannot setup port: %s", err)
+		return fmt.Errorf("(%s) cannot setup port: %s", time.Now(), err)
 	}
 	if !ok {
 		return fmt.Errorf("server respond: %s", string(b))
@@ -193,7 +192,7 @@ func startLocalProxy(config localProxyConfig) error{
 		return err
 	}
 
-	log.Println("FloxyL success connect to server!")
+	log.Println(fmt.Sprintf("(%s) FloxyL success connect to server!", time.Now()))
 
 	for {
 		listenerConn, err := hostListener.Accept()
@@ -203,20 +202,19 @@ func startLocalProxy(config localProxyConfig) error{
 
 		serverConn, err := serverClient.Dial("tcp", fmt.Sprintf("localhost:%s", serverPort))
 		if err != nil {
-			return err
+			log.Println(fmt.Sprintf("(%s) cannot call proxy server!", time.Now()))
+			continue
 		}
 
 		waitUntilEnd := make(chan bool)
 
 		go func() {
 			_, err = io.Copy(listenerConn, serverConn)
-			fmt.Println("end listenerConn, serverClient", err)
 			listenerConn.Close()
 			waitUntilEnd <- true
 		}()
 
 		_, err = io.Copy(serverConn, listenerConn)
-		fmt.Println("end serverClient, listenerConn", err)
 		serverConn.Close()
 		<- waitUntilEnd
 	}

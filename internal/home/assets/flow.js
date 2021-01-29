@@ -97,6 +97,12 @@ function burnSubmit(token) {
                             $("#burnChallenge").fadeIn("slow")
                             stopBurn()
                         })
+                    }else {
+                        stopBurn()
+                        $("#burnInProcess").fadeOut("slow",function() {
+                            $("#binGenerationError").fadeIn("slow")
+                            stopBurn()
+                        })
                     }
                 }
             }

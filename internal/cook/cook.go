@@ -92,9 +92,12 @@ func startRemoteProxy(config remoteProxyConfig) error{
 		return fmt.Errorf("dial INTO remote server error: %s", err)
 	}
 
-	_, b, err := serverClient.SendRequest("allocate-reverse-port", true, nil)
+	ok, b, err := serverClient.SendRequest("allocate-reverse-port", true, nil)
 	if err != nil {
 		return fmt.Errorf("cannot setup port: %s", err)
+	}
+	if ! ok {
+		return fmt.Errorf("server respond: %s", string(b))
 	}
 	serverPort := string(b)
 
@@ -103,6 +106,8 @@ func startRemoteProxy(config remoteProxyConfig) error{
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Println("FloxyR success connect to server!")
 
 	for {
 		serverConn, err := l.Accept()
@@ -161,7 +166,7 @@ func startLocalProxy(config localProxyConfig) error{
 		return fmt.Errorf("cannot setup port: %s", err)
 	}
 	if !ok {
-		return fmt.Errorf("error to get port: %s", string(b))
+		return fmt.Errorf("server respond: %s", string(b))
 	}
 	serverPort := string(b)
 
@@ -170,6 +175,8 @@ func startLocalProxy(config localProxyConfig) error{
 	if err != nil {
 		return err
 	}
+
+	log.Println("FloxyL success connect to server!")
 
 	for {
 		listenerConn, err := hostListener.Accept()

@@ -82,7 +82,7 @@ function burnSubmit(token) {
                             $("#copyLink").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxyL`)
                             $("#copyLink").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxyR`)
                             $("#sharePage").fadeIn("slow");
-                            greenBurn();
+                            stopBurn();
                         })
                     }else if (resJson.status === 'non_approve'){
                         stopBurn()

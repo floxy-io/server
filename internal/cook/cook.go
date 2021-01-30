@@ -24,16 +24,14 @@ import (
 var FingerPrint string
 var PrivateKey string
 var SshHost string
-var Kind    string
 
 func main() {
 	proxyHost := flag.String("host", "", "a proxyHost")
+	flagKind := flag.String("kind", "", "kind of proxy")
 
 	flag.Parse()
 
-	if Kind == "" {
-		Kind = os.Getenv("FLOXY_KIND")
-	}
+
 	if FingerPrint == "" {
 		FingerPrint = os.Getenv("FLOXY_FINGERPRINT")
 	}
@@ -43,12 +41,18 @@ func main() {
 	if SshHost == "" {
 		SshHost = os.Getenv("FLOXY_SSH_HOST")
 	}
-	log.Println(fmt.Sprintf("init %s on fingerprint:", Kind), FingerPrint)
+	log.Println(fmt.Sprintf("init %s on fingerprint !", FingerPrint))
 
+	if flagKind == nil || *flagKind == "" {
+		log.Fatal("Must use flag -host host:port")
+	}
+	if len(strings.Split(*flagKind, ":")) != 2 {
+		log.Fatal("You must specify host:port")
+	}
 
 	var err error
 
-	switch Kind {
+	switch *flagKind {
 	case "local":
 		err = startLocalProxy(localProxyConfig{
 			PrivateKey:  PrivateKey,
@@ -80,12 +84,6 @@ type remoteProxyConfig struct {
 }
 
 func startRemoteProxy(config remoteProxyConfig) error{
-	if config.ProxyHost == nil || *config.ProxyHost == "" {
-		log.Fatal("Must use flag -host host:port")
-	}
-	if len(strings.Split(*config.ProxyHost, ":")) != 2 {
-		log.Fatal("You must specify host:port")
-	}
 
 	// ssh config
 	sshConfig := &ssh.ClientConfig{
@@ -141,7 +139,7 @@ func handleConn(serverConn , proxyConn net.Conn) {
 
 	}()
 
-	_, err := io.Copy(proxyConn, serverConn)
+	_, _ = io.Copy(proxyConn, serverConn)
 	proxyConn.Close()
 	<- waitUntilEnd
 }
@@ -154,13 +152,6 @@ type localProxyConfig struct {
 }
 
 func startLocalProxy(config localProxyConfig) error{
-	if config.ProxyHost == nil || *config.ProxyHost == "" {
-		log.Fatal("Must use flag -host host:port")
-	}
-	if len(strings.Split(*config.ProxyHost, ":")) != 2 {
-		log.Fatal("You must specify host:port")
-	}
-
 	// ssh config
 	sshConfig := &ssh.ClientConfig{
 		User: config.Fingerprint,

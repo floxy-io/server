@@ -30,18 +30,9 @@ func Make(req MakeRequest)(MakeResponse, error){
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	{
-		err := compile(req, "local")
-		if err != nil {
-			return MakeResponse{}, err
-		}
-	}
-
-	{
-		err := compile(req, "remote")
-		if err != nil {
-			return MakeResponse{}, err
-		}
+	err := compile(req)
+	if err != nil {
+		return MakeResponse{}, err
 	}
 
 	if os.Getenv("LOG_KEY") == "true"{
@@ -54,8 +45,8 @@ func Make(req MakeRequest)(MakeResponse, error){
 var CustomGoPath string
 var CustomPath string
 
-func compile(req MakeRequest, k string)error{
-	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s -X main.Kind=%s -X main.SshHost=%s", req.FingerPrint, req.PKey, k, os.Getenv("FLOXY_SSH_HOST"))
+func compile(req MakeRequest)error{
+	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s -X main.SshHost=%s", req.FingerPrint, req.PKey, os.Getenv("FLOXY_SSH_HOST"))
 
 	if CustomPath == "" {
 		CustomPath = "internal/cook/cook.go"
@@ -73,11 +64,8 @@ func compile(req MakeRequest, k string)error{
 	}
 
 
-	name := "floxyL"
-	if k == "remote"{
-		name = "floxyR"
-	}
-	newLocation := filepath.Join("internal", "home", "cooked_bin", req.FingerPrint, name)
+
+	newLocation := filepath.Join("internal", "home", "cooked_bin", req.FingerPrint, "floxy")
 
 	path := filepath.Join("internal", "home", "cooked_bin",req.FingerPrint)
 	if _, err := os.Stat(path); os.IsNotExist(err) {

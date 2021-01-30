@@ -9,10 +9,9 @@ $( document ).ready(function() {
         $("#burn").show();
     }else if (window.location.pathname.includes('share')){
         const fingerprint = window.location.pathname.split('share/')[1].split('/')[0]
-        $("#copyLocalLink").attr("href", `http://localhost:8080/api/download/${fingerprint}/floxyL`)
-        $("#copyRemoteLink").attr("href", `http://localhost:8080/api/download/${fingerprint}/floxyR`)
+        $("#copyLink").attr("href", `http://localhost:8080/api/download/${fingerprint}/floxy`)
         $("#sharePage").show();
-        greenBurn();
+        stopBurn();
     }else {
         $("#home").show();
     }
@@ -80,8 +79,8 @@ function burnSubmit(token) {
                     if (resJson.status === 'approved'){
                         window.history.pushState({}, 'Share floxy', `/share/${resJson.fingerprint}`);
                         $("#burning").fadeOut("slow",function() {
-                            $("#copyLocalLink").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxyL`)
-                            $("#copyRemoteLink").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxyR`)
+                            $("#copyLink").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxyL`)
+                            $("#copyLink").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxyR`)
                             $("#sharePage").fadeIn("slow");
                             greenBurn();
                         })

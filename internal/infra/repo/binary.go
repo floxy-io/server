@@ -17,6 +17,7 @@ type Floxy struct {
 	Fingerprint    string `json:"fingerPrint"`
 	RemotePassword *string `json:"remotePassword"`
 	Expiration     time.Time `json:"expireAt"`
+	CreatedAt      time.Time `json:"createdAt"`
 	Port           int `json:"-"`
 }
 
@@ -65,7 +66,7 @@ func GetByUserAndKey(user string, public []byte)(Floxy, error){
 func GetByFingerprint(fingerprint string)(Floxy, error){
 
 	dbConn := db.Get()
-	row, err := dbConn.Query("SELECT fingerprint,publicKey,port,remotePassword,expireAt FROM floxy WHERE fingerprint=?", fingerprint)
+	row, err := dbConn.Query("SELECT fingerprint,publicKey,port,remotePassword,expireAt,createdAt FROM floxy WHERE fingerprint=?", fingerprint)
 	if err != nil {
 		return Floxy{}, err
 	}
@@ -76,8 +77,9 @@ func GetByFingerprint(fingerprint string)(Floxy, error){
 		var publicKey string
 		var remotePass *string
 		var expireAt time.Time
+		var createdAt time.Time
 		var port int
-		err = row.Scan(&fingerprint, &publicKey, &port, &remotePass, &expireAt)
+		err = row.Scan(&fingerprint, &publicKey, &port, &remotePass, &expireAt, &createdAt)
 		if err != nil {
 			return Floxy{}, err
 		}
@@ -91,6 +93,7 @@ func GetByFingerprint(fingerprint string)(Floxy, error){
 			Fingerprint:    fingerprint,
 			RemotePassword: remotePass,
 			Expiration:     expireAt,
+			CreatedAt:      createdAt,
 			Port:           port,
 		}, nil
 	}

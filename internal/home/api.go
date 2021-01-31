@@ -62,13 +62,27 @@ func getAllHosts(c echo.Context)error{
 	return c.JSON(200, sshHosts)
 }
 
+type getHostResponse struct {
+	Fingerprint    string `json:"fingerPrint"`
+	RemotePassword *string `json:"remotePassword"`
+	LinkExpiration int `json:"linkExpiration"`
+}
+
 func getHostByFingerprint(c echo.Context)error{
 	sshHosts, err := repo.GetByFingerprint(c.Param("fingerprint"))
 	if err != nil {
 		log.Println(err)
-		return c.String(400, err.Error())
+		return c.String(503, "cannot access this page")
 	}
-	return c.JSON(200, sshHosts)
+	expLink := int(10.0 - time.Now().Sub(sshHosts.CreatedAt).Minutes())
+	if expLink < 0 {
+		return c.String(503, "cannot access this page")
+	}
+	return c.JSON(200, getHostResponse{
+		Fingerprint:    sshHosts.Fingerprint,
+		RemotePassword: sshHosts.RemotePassword,
+		LinkExpiration: expLink,
+	})
 }
 
 type burnRequest struct {

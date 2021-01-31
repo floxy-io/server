@@ -3,6 +3,7 @@ const Http = new XMLHttpRequest();
 $( document ).ready(function() {
     $("#home").hide();
     $("#burn").hide();
+    $("#noLinkSharePage").hide();
     $('#burning').hide();
     $('#sharePage').hide();
     if (window.location.pathname.includes('burn')) {
@@ -122,12 +123,19 @@ function getFloxy(fingerprint) {
     Http.send();
     Http.onreadystatechange = (e) => {
         const res = Http.responseText;
-        if (Http.status === 200 && Http.readyState === 4) {
-            const resJson = JSON.parse(res);
-            if (resJson.remotePassword !== null && resJson.remotePassword !== ""){
-                $(".remoteCode").text(`remote>./floxy -k=remote -p=${resJson.remotePassword} -h {{host:ip}}`)
+        if (Http.readyState === 4) {
+            if (Http.status === 200){
+                const resJson = JSON.parse(res);
+                if (resJson.remotePassword !== null && resJson.remotePassword !== ""){
+                    $(".remoteCode").text(`remote>./floxy -k=remote -p=${resJson.remotePassword} -h {{host:ip}}`)
+                }
+                $("#shareExpSecurity").text(`${resJson.linkExpiration} minute(s)`)
+                $("#sharePage").fadeIn("slow");
+                // resJson.linkExpiration
+            }else {
+                $("#noLinkSharePage").fadeIn("slow");
             }
-            $("#sharePage").fadeIn("slow");
+
         }
     }
 }

@@ -14,9 +14,9 @@ import (
 )
 
 type MakeRequest struct {
-	PKey        string
-	FingerPrint string
-	Port        int
+	PKey           string
+	FingerPrint    string
+	RemotePassword *string
 }
 
 type MakeResponse struct {
@@ -47,6 +47,9 @@ var CustomPath string
 
 func compile(req MakeRequest)error{
 	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s -X main.SshHost=%s", req.FingerPrint, req.PKey, os.Getenv("FLOXY_SSH_HOST"))
+	if req.RemotePassword != nil {
+		ldFlags += fmt.Sprintf(" -X main.RemotePassword=%s", *req.RemotePassword)
+	}
 
 	if CustomPath == "" {
 		CustomPath = "internal/cook/cook.go"

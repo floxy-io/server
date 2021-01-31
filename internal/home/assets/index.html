@@ -45,12 +45,12 @@
                 <h3 class="noselect"><a id="binaryExpSelector" onclick="binaryExpSelector()">select</a></h3>
             </div>
             <div style="text-align: center; padding: 1em;">
-                <p style="margin-bottom: -1em">local distro</p>
-                <h3 class="noselect"><a id="localDistroSelector" onclick="localDistroSelector()">select</a></h3>
+                <p style="margin-bottom: -1em">binary distro</p>
+                <h3 class="noselect"><a id="distroSelector" onclick="distroSelector()">select</a></h3>
             </div>
             <div style="text-align: center; padding: 1em;">
-                <p style="margin-bottom: -1em">remote distro</p>
-                <h3 class="noselect"><a id="remoteDistroSelector" onclick="remoteDistroSelector()">select</a></h3>
+                <p style="margin-bottom: -1em">remote password</p>
+                <h3 class="noselect"><a id="remotePasswordSelector" onclick="remotePasswordSelector()">No</a></h3>
             </div>
         </div>
         <div id="burnButtonContainer" style="text-align: center" hidden>
@@ -87,8 +87,8 @@
                 to download file on local and remote. After download, execute
                 the command above on each computer:
             </p>
-            <p><code>local>./floxy -kind=local -host {{host:ip}}</code></p>
-            <p><code>remote>./floxy -kind=remote -host {{host:ip}}</code></p>
+            <p><code>local>./floxy -k=local -h {{host:ip}}</code></p>
+            <p><code class="remoteCode">remote>./floxy -k=remote -h {{host:ip}}</code></p>
             <p style="text-align: center">
                 thanks for using floxy!
             </p>

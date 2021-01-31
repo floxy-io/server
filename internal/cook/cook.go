@@ -24,13 +24,19 @@ import (
 var FingerPrint string
 var PrivateKey string
 var SshHost string
+var RemotePassword string
 
 func main() {
-	proxyHost := flag.String("host", "", "a proxyHost")
-	flagKind := flag.String("kind", "", "kind of proxy")
+	proxyHost := flag.String("h", "", "a proxyHost")
+	flagKind := flag.String("k", "", "kind of proxy")
+	flagPassword := flag.String("p", "", "remote password protected")
+
 
 	flag.Parse()
 
+	if RemotePassword != "" && *flagPassword != RemotePassword{
+		log.Fatal("password protected remote, please use flag -p to pass a password")
+	}
 
 	if FingerPrint == "" {
 		FingerPrint = os.Getenv("FLOXY_FINGERPRINT")

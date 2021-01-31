@@ -8,12 +8,14 @@ import (
 var db *sql.DB
 
 var sshPairTable = `
-CREATE TABLE IF NOT EXISTS sshPair (
+CREATE TABLE IF NOT EXISTS floxy (
 	fingerprint TEXT PRIMARY KEY,
 	publicKey TEXT NOT NULL,
 	port      NUMBER,
 	createdAt DATE,
-	updatedAt DATE
+	updatedAt DATE,
+	expireAt  DATE,
+	remotePassword TEXT
 );
 `
 func Get()*sql.DB{

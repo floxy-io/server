@@ -9,9 +9,7 @@ $( document ).ready(function() {
         $("#burn").show();
     }else if (window.location.pathname.includes('share')){
         const fingerprint = window.location.pathname.split('share/')[1].split('/')[0]
-        $("#copyLink").attr("href", `http://localhost:8080/api/download/${fingerprint}/floxy`)
-        $("#sharePage").show();
-        stopBurn();
+        getFloxy(fingerprint)
     }else {
         $("#home").show();
     }
@@ -24,7 +22,8 @@ function toBurnpage() {
     })
 }
 
-const binaryExpOptions = ['1 hour', '1 day', '10 days', '1 month'];
+const binaryExpOptions = [{text: '1 hour', value: 1}, {text: '1 day', value: 24}, {text: '10 days', value: 24 * 10}, {text: '1 month', value: 24 * 10 * 30}];
+
 let binaryExpSelected = -1;
 
 function binaryExpSelector() {
@@ -32,36 +31,36 @@ function binaryExpSelector() {
     if (binaryExpSelected > binaryExpOptions.length -1){
         binaryExpSelected = 0;
     }
-    $("#binaryExpSelector").text(binaryExpOptions[binaryExpSelected])
+    $("#binaryExpSelector").text(binaryExpOptions[binaryExpSelected].text)
     enableBurnButton()
 }
 
-const localDistroOptions = ['Linux', 'Docker'];
-let localDistroSelected = -1;
+const distroOptions = ['Linux'];
+let distroSelected = -1;
 
-function localDistroSelector() {
-    localDistroSelected++;
-    if (localDistroSelected > localDistroOptions.length -1){
-        localDistroSelected = 0;
+function distroSelector() {
+    distroSelected++;
+    if (distroSelected > distroOptions.length -1){
+        distroSelected = 0;
     }
-    $("#localDistroSelector").text(localDistroOptions[localDistroSelected])
+    $("#distroSelector").text(distroOptions[distroSelected])
     enableBurnButton()
 }
 
-const remoteDistroOptions = ['Linux', 'Docker'];
-let remoteDistroSelected = -1;
+const remotePasswordOptions = ['No', 'Yes'];
+let remotePasswordSelected = 0;
 
-function remoteDistroSelector() {
-    remoteDistroSelected++;
-    if (remoteDistroSelected > remoteDistroOptions.length -1){
-        remoteDistroSelected = 0;
+function remotePasswordSelector() {
+    remotePasswordSelected++;
+    if (remotePasswordSelected > remotePasswordOptions.length -1){
+        remotePasswordSelected = 0;
     }
-    $("#remoteDistroSelector").text(remoteDistroOptions[remoteDistroSelected])
+    $("#remotePasswordSelector").text(remotePasswordOptions[remotePasswordSelected])
     enableBurnButton()
 }
 
 function enableBurnButton(){
-    if (binaryExpSelected !== -1 && localDistroSelected !== -1 && remoteDistroSelected !== -1){
+    if (binaryExpSelected !== -1 && distroSelected !== -1 && remotePasswordSelected !== -1){
         $("#burnButtonContainer").fadeIn();
     }
 }
@@ -70,8 +69,16 @@ function burnSubmit(token) {
     $("#burn").fadeOut("slow",function() {
         startBurn()
         $("#burning").fadeIn("slow",function() {
-            Http.open("POST", 'http://localhost:8080/api/burn?token=' + token);
-            Http.send();
+            Http.open("POST", 'http://localhost:8080/api/floxy/burn');
+            Http.setRequestHeader("Content-Type", "application/json");
+            const data = JSON.stringify(
+                {
+                    "remotePassword": remotePasswordSelected === 1,
+                    "expiration": binaryExpOptions[binaryExpSelected].value,
+                    "token": token,
+                }
+            );
+            Http.send(data);
             Http.onreadystatechange = (e) => {
                 const res = Http.responseText;
                 if (Http.status === 200 && Http.readyState === 4) {
@@ -79,9 +86,7 @@ function burnSubmit(token) {
                     if (resJson.status === 'approved'){
                         window.history.pushState({}, 'Share floxy', `/share/${resJson.fingerprint}`);
                         $("#burning").fadeOut("slow",function() {
-                            $("#copyLink").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxy`)
-                            $("#sharePage").fadeIn("slow");
-                            stopBurn();
+                            getFloxy(resJson.fingerprint)
                         })
                     }else if (resJson.status === 'non_approve'){
                         stopBurn()
@@ -106,6 +111,25 @@ function burnSubmit(token) {
             }
         })
     });
+}
+
+function getFloxy(fingerprint) {
+    stopBurn();
+    $("#copyLink").attr("href", `http://localhost:8080/api/download/${fingerprint}/floxy`)
+
+    Http.open("GET", `http://localhost:8080/api/floxy/${fingerprint}`);
+
+    Http.send();
+    Http.onreadystatechange = (e) => {
+        const res = Http.responseText;
+        if (Http.status === 200 && Http.readyState === 4) {
+            const resJson = JSON.parse(res);
+            if (resJson.remotePassword !== null && resJson.remotePassword !== ""){
+                $(".remoteCode").text(`remote>./floxy -k=remote -p=${resJson.remotePassword} -h {{host:ip}}`)
+            }
+            $("#sharePage").fadeIn("slow");
+        }
+    }
 }
 
 const getUrlParameter = function getUrlParameter(sParam) {

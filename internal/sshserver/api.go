@@ -8,13 +8,12 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"github.com/danielsussa/floxy/internal/infra/db"
+	"github.com/danielsussa/floxy/internal/infra/repo"
 	"github.com/danielsussa/freeport"
 	"github.com/gliderlabs/ssh"
 	ssh2 "golang.org/x/crypto/ssh"
 	"log"
 	"sync"
-	"time"
 )
 
 
@@ -68,7 +67,7 @@ func Start() {
 							return false, []byte("error allocate port")
 						}
 						log.Println("new port allocated", freePort)
-						err = setPort(proxy.Fingerprint, freePort)
+						err = repo.SetPort(proxy.Fingerprint, freePort)
 						if err != nil {
 							log.Println("error to set port: ", err)
 							return false, []byte("error to set port")
@@ -100,13 +99,13 @@ func Start() {
 				if proxy.Port != int(port){
 					return false
 				}
-				_ = setUpdatedAt(proxy.Fingerprint)
+				_ = repo.SetUpdatedAt(proxy.Fingerprint)
 				log.Println("attempt to bind reverse", host, port, "granted")
 				return true
 			},
 			PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
 				log.Println("start PublicKeyHandler")
-				val, err := getByUserAndKey(ctx.User(), key.Marshal())
+				val, err := repo.GetByUserAndKey(ctx.User(), key.Marshal())
 				if err != nil {
 					log.Println("cannot find user: ", err)
 					return false
@@ -121,11 +120,13 @@ func Start() {
 
 type HostResponse struct {
 	PrivateKey string
+	Port       int
+	PublicKey  []byte
 }
 
 var mutex sync.Mutex
 
-func AllocateNewHost(fingerprint string) (HostResponse, error) {
+func AllocateNewHost() (HostResponse, error) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -144,13 +145,10 @@ func AllocateNewHost(fingerprint string) (HostResponse, error) {
 		return HostResponse{}, err
 	}
 
-	err = addKey(sshKeyProxy{PublicKey: publicKey.Marshal(), Fingerprint: fingerprint, Port: port})
-	if err != nil {
-		return HostResponse{}, err
-	}
-
 	return HostResponse{
 		PrivateKey: toBase64PrivateKey(privatekey),
+		Port:       port,
+		PublicKey:  publicKey.Marshal(),
 	}, nil
 }
 
@@ -165,104 +163,6 @@ func toBase64PrivateKey(key *rsa.PrivateKey)string{
 	return base64.StdEncoding.EncodeToString(keyPem)
 }
 
-var insertOnTable = `
-INSERT INTO sshPair (fingerprint,publicKey, port, createdAt)
-VALUES(?,?,?,?);
-`
-
-func addKey(k sshKeyProxy)error{
-	dbConn := db.Get()
-	stmt, err := dbConn.Prepare(insertOnTable)
-	if err != nil {
-		return err
-	}
-	_, err = stmt.Exec(k.Fingerprint,base64.StdEncoding.EncodeToString(k.PublicKey), k.Port, time.Now())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func getByUserAndKey(user string, public []byte)(sshKeyProxy, error){
-	key := base64.StdEncoding.EncodeToString(public)
-
-	dbConn := db.Get()
-	row, err := dbConn.Query("SELECT fingerprint,publicKey,port FROM sshPair WHERE fingerprint=? AND publicKey=?", user, key)
-	if err != nil {
-		return sshKeyProxy{}, err
-	}
-	defer row.Close()
-
-	for row.Next() {
-		var fingerprint string
-		var publicKey string
-		var port int
-		err = row.Scan(&fingerprint, &publicKey, &port)
-		if err != nil {
-			return sshKeyProxy{}, err
-		}
-
-		publicDec, err := base64.StdEncoding.DecodeString(publicKey)
-		if err != nil {
-			return sshKeyProxy{}, err
-		}
-		return sshKeyProxy{Fingerprint: fingerprint, PublicKey: publicDec, Port: port}, nil
-	}
-	return sshKeyProxy{}, fmt.Errorf("no scan")
-}
-
-func GetAll() ([]sshKeyProxy, error){
-	sshAll := make([]sshKeyProxy, 0)
-	dbConn := db.Get()
-	row, err := dbConn.Query("SELECT fingerprint,publicKey,port FROM sshPair")
-	if err != nil {
-		return sshAll, err
-	}
-	defer row.Close()
-
-	for row.Next() {
-		var fingerprint string
-		var publicKey string
-		var port int
-		err = row.Scan(&fingerprint, &publicKey, &port)
-		if err != nil {
-			return sshAll, err
-		}
-
-		publicDec, err := base64.StdEncoding.DecodeString(publicKey)
-		if err != nil {
-			return sshAll, err
-		}
-		sshAll = append(sshAll, sshKeyProxy{Fingerprint: fingerprint, PublicKey: publicDec, Port: port})
-	}
-	return sshAll, nil
-}
-
-func setPort(fingerprint string, port int)error{
-	dbConn := db.Get()
-	stmt, err := dbConn.Prepare("UPDATE sshPair SET port=? WHERE fingerprint=?")
-	if err != nil {
-		return err
-	}
-	_, err = stmt.Exec(port, fingerprint)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func setUpdatedAt(fingerprint string)error{
-	dbConn := db.Get()
-	stmt, err := dbConn.Prepare("UPDATE sshPair SET updatedAd=? WHERE fingerprint=?")
-	if err != nil {
-		return err
-	}
-	_, err = stmt.Exec(time.Now(), fingerprint)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func getProxy(ctx ssh.Context)(*sshKeyProxy, error){
 	proxy := ctx.Value("keyProxy")

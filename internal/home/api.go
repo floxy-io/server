@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"github.com/danielsussa/floxy/internal/infra/compiler"
 	"github.com/danielsussa/floxy/internal/infra/recaptcha"
+	"github.com/danielsussa/floxy/internal/infra/repo"
 	"github.com/danielsussa/floxy/internal/sshserver"
 	"github.com/google/uuid"
 	"github.com/labstack/echo"
 	"log"
+	"strings"
+	"time"
 )
 
 var (
@@ -32,8 +35,9 @@ func Start(){
 		e.Static("/burn", AssetsPath)
 		e.Static("/share/:fingerprint", AssetsPath)
 		e.GET("/api/download/:fingerprint/:kind", downloadBinary)
+		e.GET("/api/floxy/:fingerprint", getHostByFingerprint)
 		e.GET("/internal/hosts", getAllHosts)
-		e.POST("/api/burn", burn)
+		e.POST("/api/floxy/burn", burn)
 		e.Logger.Fatal(e.Start(":8080"))
 	}()
 }
@@ -50,7 +54,7 @@ type burnResponse struct {
 }
 
 func getAllHosts(c echo.Context)error{
-	sshHosts, err := sshserver.GetAll()
+	sshHosts, err := repo.GetAll()
 	if err != nil {
 		log.Println(err)
 		return c.String(400, err.Error())
@@ -58,9 +62,32 @@ func getAllHosts(c echo.Context)error{
 	return c.JSON(200, sshHosts)
 }
 
+func getHostByFingerprint(c echo.Context)error{
+	sshHosts, err := repo.GetByFingerprint(c.Param("fingerprint"))
+	if err != nil {
+		log.Println(err)
+		return c.String(400, err.Error())
+	}
+	return c.JSON(200, sshHosts)
+}
+
+type burnRequest struct {
+	Token          string
+	Expiration     int
+	RemotePassword bool
+}
+
 func burn(c echo.Context) error{
+	var request burnRequest
+	if err := c.Bind(&request); err != nil {
+		return c.JSON(200, burnResponse{Status: "ssh_err"})
+	}
+
+	log.Println("receive request: ", request)
+
+	// recaptcha
 	{
-		res, err := recaptcha.Get(c.QueryParam("token"))
+		res, err := recaptcha.Get(request.Token)
 		if err != nil || !res.Success{
 			return c.JSON(200, burnResponse{Status: "non_approve"})
 		}
@@ -70,17 +97,36 @@ func burn(c echo.Context) error{
 	}
 
 	fingerPrint := uuid.New().String()
-	serverHost, err := sshserver.AllocateNewHost(fingerPrint)
+	serverHost, err := sshserver.AllocateNewHost()
 	if err != nil{
 		log.Println(err)
 		return c.JSON(200, burnResponse{Status: "ssh_err"})
 	}
 
+	var remotePass *string
+	if request.RemotePassword {
+		k := strings.Split(uuid.New().String(), "-")[0]
+		remotePass = &k
+	}
+
 	binaryRes, err := compiler.Make(compiler.MakeRequest{
-		PKey:        serverHost.PrivateKey,
-		FingerPrint: fingerPrint,
+		PKey:           serverHost.PrivateKey,
+		FingerPrint:    fingerPrint,
+		RemotePassword: remotePass,
 	})
 
+	if err != nil{
+		log.Println(err)
+		return c.JSON(200, burnResponse{Status: "bin_err"})
+	}
+
+	err = repo.AddNewFloxy(repo.Floxy{
+		PublicKey:      serverHost.PublicKey,
+		Fingerprint:    fingerPrint,
+		RemotePassword: remotePass,
+		Expiration:     time.Now().Add(time.Hour * time.Duration(request.Expiration)),
+		Port:           serverHost.Port,
+	})
 	if err != nil{
 		log.Println(err)
 		return c.JSON(200, burnResponse{Status: "bin_err"})

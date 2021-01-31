@@ -17,12 +17,6 @@ import (
 )
 
 
-type sshKeyProxy struct {
-	PublicKey   []byte
-	Fingerprint string
-	Port        int
-}
-
 var (
 	server ssh.Server
 )
@@ -78,7 +72,11 @@ func Start() {
 				},
 				"allocate-local-port": func(ctx ssh.Context, srv *ssh.Server, req *ssh2.Request) (ok bool, payload []byte) {
 					log.Println("start allocate-local-port")
-					proxy := ctx.Value("keyProxy").(*sshKeyProxy)
+					proxy, err := getProxy(ctx)
+					if err != nil {
+						log.Println("error to allocate port: ", err)
+						return false, []byte("error to set port")
+					}
 					if proxy.Port == 0 {
 						return false, []byte("no ports are available\n")
 					}
@@ -164,10 +162,10 @@ func toBase64PrivateKey(key *rsa.PrivateKey)string{
 }
 
 
-func getProxy(ctx ssh.Context)(*sshKeyProxy, error){
+func getProxy(ctx ssh.Context)(*repo.Floxy, error){
 	proxy := ctx.Value("keyProxy")
 	if proxy == nil {
 		return nil, fmt.Errorf("cannot find proxy")
 	}
-	return proxy.(*sshKeyProxy), nil
+	return proxy.(*repo.Floxy), nil
 }

@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS floxy (
 	publicKey TEXT NOT NULL,
 	port      NUMBER,
 	createdAt DATE,
-	updatedAt DATE,
+	activated BOOLEAN,
 	expireAt  DATE,
 	remotePassword TEXT
 );

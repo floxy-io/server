@@ -97,7 +97,9 @@ func Start() {
 				if proxy.Port != int(port){
 					return false
 				}
-				_ = repo.SetUpdatedAt(proxy.Fingerprint)
+				if !proxy.Activated {
+					_ = repo.ActiveProxy(proxy.Fingerprint)
+				}
 				log.Println("attempt to bind reverse", host, port, "granted")
 				return true
 			},

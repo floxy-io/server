@@ -25,6 +25,11 @@ type MakeResponse struct {
 
 var mutex sync.Mutex
 
+func RemoveLink(fingerprint string)error{
+	path := filepath.Join("internal", "home", "cooked_bin", fingerprint)
+	os.Remove(path)
+	return nil
+}
 
 func Make(req MakeRequest)(MakeResponse, error){
 	mutex.Lock()

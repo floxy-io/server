@@ -37,6 +37,7 @@ func Start(){
 		e.GET("/api/download/:fingerprint/:kind", downloadBinary)
 		e.GET("/api/floxy/:fingerprint", getHostByFingerprint)
 		e.GET("/internal/hosts", getAllHosts)
+		e.GET("/internal/exclude", excludeNotActive)
 		e.POST("/api/floxy/burn", burn)
 		e.Logger.Fatal(e.Start(":8080"))
 	}()
@@ -58,6 +59,29 @@ func getAllHosts(c echo.Context)error{
 	if err != nil {
 		log.Println(err)
 		return c.String(400, err.Error())
+	}
+	return c.JSON(200, sshHosts)
+}
+
+func excludeNotActive(c echo.Context)error{
+	sshHosts, err := repo.GetAll()
+	if err != nil {
+		log.Println(err)
+		return c.String(400, err.Error())
+	}
+
+	for _, floxy := range sshHosts {
+		if !floxy.IsActive() {
+			err = repo.Remove(floxy.Fingerprint)
+			if err != nil {
+				log.Println(err)
+				return c.String(400, err.Error())
+			}
+		}
+		if floxy.ExpiredLink() {
+			// remove download file
+			_ = compiler.RemoveLink(floxy.Fingerprint)
+		}
 	}
 	return c.JSON(200, sshHosts)
 }

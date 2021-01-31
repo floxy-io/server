@@ -18,7 +18,28 @@ type Floxy struct {
 	RemotePassword *string `json:"remotePassword"`
 	Expiration     time.Time `json:"expireAt"`
 	CreatedAt      time.Time `json:"createdAt"`
+	Activated      bool `json:"isActive"`
 	Port           int `json:"-"`
+}
+
+func (f Floxy) IsActive()bool{
+	if time.Now().Sub(f.CreatedAt).Minutes() < 30 {
+		return true
+	}
+	if f.Expiration.After(time.Now()){
+		return false
+	}
+	if !f.Activated {
+		return false
+	}
+	return true
+}
+
+func (f Floxy) ExpiredLink()bool{
+	if time.Now().Sub(f.CreatedAt).Minutes() > 10 {
+		return true
+	}
+	return false
 }
 
 func AddNewFloxy(k Floxy)error{
@@ -103,7 +124,7 @@ func GetByFingerprint(fingerprint string)(Floxy, error){
 func GetAll() ([]Floxy, error){
 	sshAll := make([]Floxy, 0)
 	dbConn := db.Get()
-	row, err := dbConn.Query("SELECT fingerprint,publicKey,port FROM floxy")
+	row, err := dbConn.Query("SELECT fingerprint,publicKey,port,activated,createdAt,expireAt FROM floxy")
 	if err != nil {
 		return sshAll, err
 	}
@@ -112,8 +133,11 @@ func GetAll() ([]Floxy, error){
 	for row.Next() {
 		var fingerprint string
 		var publicKey string
+		var activated bool
+		var createdAt time.Time
+		var expireAt  time.Time
 		var port int
-		err = row.Scan(&fingerprint, &publicKey, &port)
+		err = row.Scan(&fingerprint, &publicKey, &port, &activated, &createdAt, &expireAt)
 		if err != nil {
 			return sshAll, err
 		}
@@ -122,14 +146,22 @@ func GetAll() ([]Floxy, error){
 		if err != nil {
 			return sshAll, err
 		}
-		sshAll = append(sshAll, Floxy{Fingerprint: fingerprint, PublicKey: publicDec, Port: port})
+		sshAll = append(sshAll, Floxy{
+			PublicKey:      publicDec,
+			Fingerprint:    fingerprint,
+			RemotePassword: nil,
+			Expiration:     expireAt,
+			CreatedAt:      createdAt,
+			Activated:      activated,
+			Port:           port,
+		})
 	}
 	return sshAll, nil
 }
 
 func SetPort(fingerprint string, port int)error{
 	dbConn := db.Get()
-	stmt, err := dbConn.Prepare("UPDATE sshPair SET port=? WHERE fingerprint=?")
+	stmt, err := dbConn.Prepare("UPDATE floxy SET port=? WHERE fingerprint=?")
 	if err != nil {
 		return err
 	}
@@ -140,13 +172,26 @@ func SetPort(fingerprint string, port int)error{
 	return nil
 }
 
-func SetUpdatedAt(fingerprint string)error{
+func Remove(fingerprint string)error{
 	dbConn := db.Get()
-	stmt, err := dbConn.Prepare("UPDATE sshPair SET updatedAd=? WHERE fingerprint=?")
+	stmt, err := dbConn.Prepare("DELETE floxy WHERE fingerprint=?")
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec(time.Now(), fingerprint)
+	_, err = stmt.Exec(fingerprint)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func ActiveProxy(fingerprint string)error{
+	dbConn := db.Get()
+	stmt, err := dbConn.Prepare("UPDATE floxy SET activated=true WHERE fingerprint=?")
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(fingerprint)
 	if err != nil {
 		return err
 	}

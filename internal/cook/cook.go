@@ -44,9 +44,13 @@ func main() {
 	log.Println(fmt.Sprintf("init %s on fingerprint !", FingerPrint))
 
 	if flagKind == nil || *flagKind == "" {
+		log.Fatal("Must use flag -kind to specify local or remote")
+	}
+
+	if proxyHost == nil || *proxyHost == "" {
 		log.Fatal("Must use flag -host host:port")
 	}
-	if len(strings.Split(*flagKind, ":")) != 2 {
+	if len(strings.Split(*proxyHost, ":")) != 2 {
 		log.Fatal("You must specify host:port")
 	}
 

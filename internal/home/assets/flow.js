@@ -79,8 +79,7 @@ function burnSubmit(token) {
                     if (resJson.status === 'approved'){
                         window.history.pushState({}, 'Share floxy', `/share/${resJson.fingerprint}`);
                         $("#burning").fadeOut("slow",function() {
-                            $("#copyLink").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxyL`)
-                            $("#copyLink").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxyR`)
+                            $("#copyLink").attr("href", `http://localhost:8080/api/download/${resJson.fingerprint}/floxy`)
                             $("#sharePage").fadeIn("slow");
                             stopBurn();
                         })

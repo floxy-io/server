@@ -83,17 +83,17 @@
             <h2>download & share!</h2>
         </div>
         <div style="display: block;padding: 25px;">
-            <p><code>local>./floxyL -h {{host:ip}}</code></p>
-            <p style="margin-top: -0.1em;"><a id="copyLink" href="#">click here</a> to download Local binary</p>
+            <p><a id="copyLink" href="#">click here</a>
+                to download file on local and remote. After download, execute
+                the command above on each computer:
+            </p>
+            <p><code>local>./floxy -kind=local -host {{host:ip}}</code></p>
+            <p><code>remote>./floxy -kind=remote -host {{host:ip}}</code></p>
+            <p style="text-align: center">
+                thanks for using floxy!
+            </p>
         </div>
-
-        <div style="display: block;padding: 25px;">
-            <p><code>remote>./floxyR -h {{host:ip}}</code></p>
-            <p style="margin-top: -0.1em;"><a id="copyLink" href="#">click here</a> to download Remote binary</p>
-        </div>
-
     </div>
-
 </body>
 
 </html>

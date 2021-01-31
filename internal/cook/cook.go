@@ -34,10 +34,6 @@ func main() {
 
 	flag.Parse()
 
-	if RemotePassword != "" && *flagPassword != RemotePassword{
-		log.Fatal("password protected remote, please use flag -p to pass a password")
-	}
-
 	if FingerPrint == "" {
 		FingerPrint = os.Getenv("FLOXY_FINGERPRINT")
 	}
@@ -71,6 +67,9 @@ func main() {
 			ProxyHost:   proxyHost,
 		})
 	case "remote":
+		if RemotePassword != "" && *flagPassword != RemotePassword{
+			log.Fatal("password protected remote, please use flag -p with a correct password")
+		}
 		err = startRemoteProxy(remoteProxyConfig{
 			PrivateKey:  PrivateKey,
 			Fingerprint: FingerPrint,

@@ -46,7 +46,7 @@ func main() {
 	log.Println(fmt.Sprintf("init %s on fingerprint !", FingerPrint))
 
 	if flagKind == nil || *flagKind == "" {
-		log.Fatal("Must use flag -kind to specify local or remote")
+		log.Fatal("Must use flag -k to specify local or remote")
 	}
 
 	if proxyHost == nil || *proxyHost == "" {
@@ -103,6 +103,7 @@ func startRemoteProxy(config remoteProxyConfig) error{
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
+
 	// Connect to SSH remote server using serverEndpoint
 	serverClient, err := ssh.Dial("tcp", config.SshHost, sshConfig)
 	if err != nil {

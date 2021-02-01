@@ -27,7 +27,7 @@ func Shutdown(ctx context.Context)error {
 func Start() {
 	log.Println("starting ssh server on port 2222...")
 
-	forwardHandler := &ssh.ForwardedTCPHandler{}
+	forwardHandler := &forwardedTCPHandler{}
 
 	go func() {
 		server = ssh.Server{
@@ -86,7 +86,7 @@ func Start() {
 			},
 			ChannelHandlers: map[string]ssh.ChannelHandler{
 				"direct-tcpip": func(srv *ssh.Server, conn *ssh2.ServerConn, newChan ssh2.NewChannel, ctx ssh.Context) {
-					ssh.DirectTCPIPHandler(srv, conn, newChan, ctx)
+					directTCPIPHandler(srv, conn, newChan, ctx)
 				},
 			},
 			ReversePortForwardingCallback: func(ctx ssh.Context, host string, port uint32) bool {

@@ -10,6 +10,7 @@ window.onpopstate = function(event) {
 
 function flow() {
     $("#home").hide();
+    $("#aboutPage").hide();
     $("#burn").hide();
     $("#noLinkSharePage").hide();
     $('#burning').hide();

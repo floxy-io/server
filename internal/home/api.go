@@ -33,6 +33,7 @@ func Start(){
 		e = echo.New()
 		e.Static("/", AssetsPath)
 		e.Static("/burn", AssetsPath)
+		e.Static("/about", AssetsPath)
 		e.Static("/share/:fingerprint", AssetsPath)
 		e.GET("/api/download/:fingerprint/:kind", downloadBinary)
 		e.GET("/api/floxy/:fingerprint", getHostByFingerprint)

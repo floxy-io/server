@@ -1,6 +1,14 @@
 const Http = new XMLHttpRequest();
 
 $( document ).ready(function() {
+    flow();
+});
+
+window.onpopstate = function(event) {
+    flow();
+};
+
+function flow() {
     $("#home").hide();
     $("#burn").hide();
     $("#noLinkSharePage").hide();
@@ -8,18 +16,27 @@ $( document ).ready(function() {
     $('#sharePage').hide();
     if (window.location.pathname.includes('burn')) {
         $("#burn").show();
-    }else if (window.location.pathname.includes('share')){
+    }else if (window.location.pathname.includes('share')) {
         const fingerprint = window.location.pathname.split('share/')[1].split('/')[0]
         getFloxy(fingerprint)
+    }else if (window.location.pathname.includes('about')) {
+        $("#aboutPage").show();
     }else {
         $("#home").show();
     }
-});
+}
 
 function toBurnpage() {
     window.history.pushState({}, 'Burn floxy', '/burn');
     $("#home").fadeOut("slow",function() {
         $("#burn").fadeIn("slow");
+    })
+}
+
+function toAboutpage() {
+    window.history.pushState({}, 'About', '/about');
+    $("#home").fadeOut("slow",function() {
+        $("#aboutPage").fadeIn("slow");
     })
 }
 

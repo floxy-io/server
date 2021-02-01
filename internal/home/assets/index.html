@@ -24,8 +24,8 @@
         <div>
             <h1>Floxy</h1>
             <h3 style="margin-top: -1em;">High secury <code>tunneling</code> connection</h3>
-            <h4 style="text-align: center"><strong>Free</strong> and simple service that allow end-to-end <code>secure connection over the internet</code></h4>
-            <h3 style="text-align: center"><a>more about</a> | <a onclick="toBurnpage()">Let's start</a></h3>
+            <h4 style="text-align: center"><strong>Free</strong> and simple service that allows end-to-end <code>secure connection over the internet</code></h4>
+            <h3 style="text-align: center"><a onclick="toAboutpage()">more about</a> | <a onclick="toBurnpage()">Let's start</a></h3>
         </div>
     </div>
 
@@ -34,8 +34,9 @@
             <h2>Great, let's do it!</h2>
         </div>
         <div style="display: flex;padding: 15px;text-align: center;">
-            <p>Floxy is based on <code>ssh tunneling</code>. Our service will create an <code>unique binary</code> with fingerprint and
-                async certificate to close a connection between your PC and a remote. We just need only a few information:
+            <p>Floxy is based on<code>ssh tunneling</code>by creating an <code>unique binary</code> and
+                async certificate to connect a local and remote PC. No login required, only this form bellow
+                to burn the binary:
             </p>
         </div>
         <div style="display: flex;padding: 15px; flex-wrap: wrap; justify-content: center;">
@@ -62,6 +63,36 @@
                 <p>Burn New Floxy</p>
             </button>
 
+        </div>
+    </div>
+
+    <div id="aboutPage">
+        <div style="padding: 15px;text-align: center;">
+            <h2>About it.</h2>
+        </div>
+        <div style="display: flex;padding: 15px;">
+            <p>
+                When devices are deployed behind restricted firewalls at remote sites,
+                you need a way to gain access to those device for troubleshooting, configuration updates,
+                and other operational tasks. Secure tunneling helps customers establish bidirectional communication
+                to remote devices over a secure connection that is managed by AWS IoT.
+                Secure tunneling does not require updates to your existing inbound firewall rule,
+                so you can keep the same security level provided by firewall rules at a remote site.
+            </p>
+        </div>
+        <div style="display: flex;padding: 15px;">
+            <p>
+                For example, a sensor device located at a factory that is a couple hundred miles away is having
+                trouble measuring the factory temperature. You can use secure tunneling to open and quickly start
+                a session to that sensor device. After you have identified the problem (for example, a bad
+                configuration file), you can reset the file and restart the sensor device through the same session.
+                Compared to a more traditional troubleshooting (for example, sending a technician to the factory to
+                investigate the sensor device), secure tunneling decreases incident response and recovery time and
+                operational costs.
+            </p>
+        </div>
+        <div style="display: flex;padding: 15px;text-align: center;">
+            <p><code>></code></p>
         </div>
     </div>
 

@@ -30,6 +30,7 @@ func main() {
 	proxyHost := flag.String("h", "", "a proxyHost")
 	flagKind := flag.String("k", "", "kind of proxy")
 	flagPassword := flag.String("p", "", "remote password protected")
+	externalDomain := flag.String("e", "", "external domain")
 
 
 	flag.Parse()
@@ -54,6 +55,10 @@ func main() {
 	}
 	if len(strings.Split(*proxyHost, ":")) != 2 {
 		log.Fatal("You must specify host:port")
+	}
+
+	if externalDomain != nil {
+		log.Println("external domain active: ", *externalDomain)
 	}
 
 	var err error

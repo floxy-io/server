@@ -38,10 +38,14 @@ func Start()chan error{
 				continue
 			}
 			tlsConn := conn.(*tls.Conn)
-			tlsConn.VerifyHostname()
 
 			fmt.Println("remote conn", conn.RemoteAddr().String())
 			fmt.Println("local conn", conn.LocalAddr().String())
+
+			fmt.Println(tlsConn.ConnectionState())
+			for _, c := range tlsConn.ConnectionState().PeerCertificates {
+				fmt.Println(c)
+			}
 
 			conn.Close()
 		}

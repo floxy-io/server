@@ -31,8 +31,7 @@ func main() {
 	proxyHost := flag.String("h", "", "a proxyHost")
 	flagKind := flag.String("k", "", "kind of proxy")
 	flagPassword := flag.String("p", "", "remote password protected")
-	externalDomain := flag.String("e", "", "external domain")
-
+	//externalDomain := flag.String("e", "", "external domain")
 
 	flag.Parse()
 
@@ -60,10 +59,6 @@ func main() {
 		log.Fatal("You must specify host:port")
 	}
 
-	if externalDomain != nil {
-		log.Println("external domain active: ", *externalDomain)
-	}
-
 	var err error
 
 	switch Kind {
@@ -75,7 +70,7 @@ func main() {
 			ProxyHost:   proxyHost,
 		})
 	case "remote":
-		if RemotePassword != "" && *flagPassword != RemotePassword{
+		if RemotePassword != "" && *flagPassword != RemotePassword {
 			log.Fatal("password protected remote, please use flag -p with a correct password")
 		}
 		err = startRemoteProxy(remoteProxyConfig{
@@ -100,7 +95,7 @@ type remoteProxyConfig struct {
 	ProxyHost   *string
 }
 
-func startRemoteProxy(config remoteProxyConfig) error{
+func startRemoteProxy(config remoteProxyConfig) error {
 
 	// ssh config
 	sshConfig := &ssh.ClientConfig{
@@ -122,7 +117,7 @@ func startRemoteProxy(config remoteProxyConfig) error{
 	if err != nil {
 		return fmt.Errorf("cannot setup port: %s", err)
 	}
-	if ! ok {
+	if !ok {
 		return fmt.Errorf("server respond: %s", string(b))
 	}
 	serverPort := string(b)
@@ -148,7 +143,7 @@ func startRemoteProxy(config remoteProxyConfig) error{
 	}
 }
 
-func handleConn(serverConn , proxyConn net.Conn) {
+func handleConn(serverConn, proxyConn net.Conn) {
 	waitUntilEnd := make(chan bool)
 	go func() {
 		_, _ = io.Copy(serverConn, proxyConn)
@@ -159,7 +154,7 @@ func handleConn(serverConn , proxyConn net.Conn) {
 
 	_, _ = io.Copy(proxyConn, serverConn)
 	proxyConn.Close()
-	<- waitUntilEnd
+	<-waitUntilEnd
 }
 
 type localProxyConfig struct {
@@ -169,7 +164,7 @@ type localProxyConfig struct {
 	ProxyHost   *string
 }
 
-func startLocalProxy(config localProxyConfig) error{
+func startLocalProxy(config localProxyConfig) error {
 	// ssh config
 	sshConfig := &ssh.ClientConfig{
 		User: config.Fingerprint,
@@ -226,7 +221,7 @@ func startLocalProxy(config localProxyConfig) error{
 
 		_, err = io.Copy(serverConn, listenerConn)
 		serverConn.Close()
-		<- waitUntilEnd
+		<-waitUntilEnd
 	}
 }
 

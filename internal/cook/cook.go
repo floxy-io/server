@@ -9,6 +9,7 @@ MIT License, http://www.opensource.org/licenses/mit-license.php
 package main
 
 import (
+	"bufio"
 	"encoding/base64"
 	"flag"
 	"fmt"
@@ -35,6 +36,8 @@ func main() {
 
 	flag.Parse()
 
+	reader := bufio.NewReader(os.Stdin)
+
 	if FingerPrint == "" {
 		FingerPrint = os.Getenv("FLOXY_FINGERPRINT")
 	}
@@ -53,7 +56,9 @@ func main() {
 	}
 
 	if proxyHost == nil || *proxyHost == "" {
-		log.Fatal("Must use flag -host host:port")
+		fmt.Print("-> specify port: ")
+		readPort, _ := reader.ReadString('\n')
+		proxyHost = &readPort
 	}
 	if len(strings.Split(*proxyHost, ":")) != 2 {
 		log.Fatal("You must specify host:port")

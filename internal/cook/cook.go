@@ -1,8 +1,8 @@
 /*
 Based on implementation of https://gist.github.com/codref/473351a24a3ef90162cf10857fac0ff3
 Go-Language implementation of an SSH Reverse Tunnel, the equivalent of below SSH command:
-   ssh -R 8085:127.0.0.1:1325 -R 8086:127.0.0.1:1326 app@146.148.21.125
-Copyright 2017, Daniel Kanczuk
+   ssh -R 8085:127.0.0.1:1325 -R 8086:127.0.0.1:1326 app@ip
+Copyright 2020, Daniel Kanczuk
 MIT License, http://www.opensource.org/licenses/mit-license.php
 */
 
@@ -25,6 +25,7 @@ var FingerPrint string
 var PrivateKey string
 var SshHost string
 var RemotePassword string
+var Kind string
 
 func main() {
 	proxyHost := flag.String("h", "", "a proxyHost")
@@ -46,8 +47,10 @@ func main() {
 	}
 	log.Println(fmt.Sprintf("init %s on fingerprint !", FingerPrint))
 
-	if flagKind == nil || *flagKind == "" {
-		log.Fatal("Must use flag -k to specify local or remote")
+	if Kind == "" {
+		if flagKind == nil || *flagKind == "" {
+			log.Fatal("Must use flag -k to specify local or remote")
+		}
 	}
 
 	if proxyHost == nil || *proxyHost == "" {
@@ -63,7 +66,7 @@ func main() {
 
 	var err error
 
-	switch *flagKind {
+	switch Kind {
 	case "local":
 		err = startLocalProxy(localProxyConfig{
 			PrivateKey:  PrivateKey,
@@ -209,6 +212,7 @@ func startLocalProxy(config localProxyConfig) error{
 		serverConn, err := serverClient.Dial("tcp", fmt.Sprintf("localhost:%s", serverPort))
 		if err != nil {
 			log.Println(fmt.Sprintf("(%s) cannot call proxy server!", time.Now()))
+			time.Sleep(1 * time.Second)
 			continue
 		}
 

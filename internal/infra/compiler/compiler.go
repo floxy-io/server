@@ -1,13 +1,13 @@
 package compiler
 
 import (
-	"crypto/rsa"
-	"crypto/x509"
-	"encoding/pem"
+	"archive/tar"
+	"archive/zip"
 	"fmt"
-	"github.com/onsi/gomega/gexec"
+	"io"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -17,6 +17,13 @@ type MakeRequest struct {
 	PKey           string
 	FingerPrint    string
 	RemotePassword *string
+	Distro         []DistroRequest
+}
+
+type DistroRequest struct {
+	Os       string
+	Platform string
+	Kind     string
 }
 
 type MakeResponse struct {
@@ -35,7 +42,28 @@ func Make(req MakeRequest)(MakeResponse, error){
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	err := compile(req)
+	folder := filepath.Join("internal", "home", "cooked_bin", req.FingerPrint)
+	if _, err := os.Stat(folder); os.IsNotExist(err) {
+		err = os.Mkdir(folder, 0700)
+		if err != nil {
+			return MakeResponse{}, err
+		}
+	}
+
+	for _, distro := range req.Distro {
+		err := compile(compileRequest{
+			FingerPrint: req.FingerPrint,
+			PKey:        req.PKey,
+			Password:    req.RemotePassword,
+			Folder:      folder,
+			Distro:      distro,
+		})
+		if err != nil {
+			return MakeResponse{}, err
+		}
+	}
+
+	err := zipFile(folder)
 	if err != nil {
 		return MakeResponse{}, err
 	}
@@ -50,56 +78,135 @@ func Make(req MakeRequest)(MakeResponse, error){
 var CustomGoPath string
 var CustomPath string
 
-func compile(req MakeRequest)error{
-	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s -X main.SshHost=%s", req.FingerPrint, req.PKey, os.Getenv("FLOXY_SSH_HOST"))
-	if req.RemotePassword != nil {
-		ldFlags += fmt.Sprintf(" -X main.RemotePassword=%s", *req.RemotePassword)
+type compileRequest struct {
+	FingerPrint string
+	PKey        string
+	Password    *string
+	Folder      string
+	Distro      DistroRequest
+}
+
+func (d DistroRequest)binaryName()string{
+	name := "floxyR"
+	if d.Kind == "local"{
+		name = "floxyL"
+	}
+	if strings.Contains(d.Os, "windows"){
+		name += ".exe"
+	}
+	return name
+}
+
+func (d DistroRequest) envs()[]string{
+	f1 := []string{fmt.Sprintf("GOOS=%s", d.Os), fmt.Sprintf("GOARCH=%s", d.Platform)}
+	//f2 := []string{"GOOS", d.Os, "GOARCH", d.Platform}
+	return f1
+}
+
+func compile(req compileRequest)error{
+	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s -X main.SshHost=%s -X main.Kind=%s", req.FingerPrint, req.PKey, os.Getenv("FLOXY_SSH_HOST"), req.Distro.Kind)
+	if req.Password != nil {
+		ldFlags += fmt.Sprintf(" -X main.RemotePassword=%s", *req.Password)
 	}
 
-	if CustomPath == "" {
-		CustomPath = "internal/cook/cook.go"
-	}
-	var err error
-	var compStr string
-	if CustomGoPath != "" {
-		log.Println("using custom Gopath: ", CustomGoPath)
-		compStr, err = gexec.BuildIn(CustomGoPath,CustomPath,"-ldflags",ldFlags)
-	}else {
-		compStr, err = gexec.Build(CustomPath,"-ldflags",ldFlags)
-	}
-	if err != nil {
-		return err
-	}
+	executable := filepath.Join(req.Folder, req.Distro.binaryName())
 
+	cmdArgs := append([]string{"build"}, "-ldflags", ldFlags)
+	cmdArgs = append(cmdArgs, "-o", executable, "internal/cook/cook.go")
 
+	build := exec.Command("go", cmdArgs...)
+	build.Env = append(build.Env,os.Environ()...)
+	build.Env = append(build.Env, req.Distro.envs()...)
 
-	newLocation := filepath.Join("internal", "home", "cooked_bin", req.FingerPrint, "floxy")
-
-	path := filepath.Join("internal", "home", "cooked_bin",req.FingerPrint)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		err = os.Mkdir(path, 0700)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = os.Rename(compStr, newLocation)
+	_, err := build.CombinedOutput()
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func getLdFlagFromKey(pKey *rsa.PrivateKey)string{
-	privateKeyBytes := x509.MarshalPKCS1PrivateKey(pKey)
-	keyPem := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "RSA PRIVATE KEY",
-			Bytes: privateKeyBytes,
-		},
-	)
-	blockStr := string(keyPem)
-	blockStr = strings.Replace(blockStr,"\n","<br>",-1)
-	blockStr = strings.Replace(blockStr," ","<p>",-1)
-	return blockStr
+func tarFile(folder string)error{
+	err := os.Mkdir(filepath.Join(folder, "compress"), 0700)
+	if err != nil {
+		return err
+	}
+
+	tarfile, err := os.Create(filepath.Join(folder,"compress", "floxy.tar"))
+	if err != nil {
+		return err
+	}
+	defer tarfile.Close()
+
+	tarball := tar.NewWriter(tarfile)
+	defer tarball.Close()
+
+	return filepath.Walk(folder, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if strings.Contains(info.Name(), "compress"){
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		header, err := tar.FileInfoHeader(info, info.Name())
+		if err != nil {
+			return err
+		}
+		if err := tarball.WriteHeader(header); err != nil {
+			return err
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		_, err = io.Copy(tarball, file)
+		return err
+	})
+}
+
+func zipFile(folder string)error{
+	err := os.Mkdir(filepath.Join(folder, "compress"), 0700)
+	if err != nil {
+		return err
+	}
+
+
+	zipFile, err := os.Create(filepath.Join(folder,"compress", "floxy.zip"))
+	if err != nil {
+		return err
+	}
+	defer zipFile.Close()
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	return filepath.Walk(folder, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if strings.Contains(info.Name(), "compress"){
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		f, err := zipWriter.Create(info.Name())
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(f, file)
+
+		return err
+	})
 }

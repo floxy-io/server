@@ -6,7 +6,6 @@
     <script src="/fire.js"></script>
     <link rel="stylesheet" href="/basic.css">
     <link rel="stylesheet" href="/fire.css">
-    <link rel="stylesheet" href="/data-buttons.css">
     <link rel="icon" href="/favicon.ico">
 
     <link rel="preconnect" href="https://fonts.gstatic.com">
@@ -14,7 +13,7 @@
 
     <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
     <script src="/flow.js"></script>
-    <script src="https://www.google.com/recaptcha/api.js"></script>
+    <script src="https://www.google.com/recaptcha/api.js?render=6LeUMCMaAAAAABmP3FZtGTOFcGDgpGR0Z0pI7j2R"></script>
 
 </head>
 <body>
@@ -29,42 +28,43 @@
         </div>
     </div>
 
-    <div id="burn">
+    <div id="burnPage">
         <div style="padding: 15px;text-align: center;">
             <h2>Great, let's do it!</h2>
         </div>
         <div style="display: flex;padding: 15px;text-align: center;">
-            <p>Floxy is based on<code>ssh tunneling</code>by creating an <code>unique binary</code> and
-                async certificate to connect a local and remote PC. No login required, only this form bellow
+            <p>Floxy is based on ssh tunneling by creating an unique binary and
+                async certificate to connect a local and remote PC. <code>No login required</code>, only 3 questions
                 to burn the binary:
             </p>
         </div>
         <div style="display: flex;padding: 15px; flex-wrap: wrap; justify-content: center;">
             <div style="text-align: center; padding: 1em;">
-                <p style="margin-bottom: -1em">binary expiration</p>
-                <h3 class="noselect"><a id="binaryExpSelector" onclick="binaryExpSelector()">select</a></h3>
+                <h2><a onclick="goToFormPage()">start!</a></h2>
             </div>
-            <div style="text-align: center; padding: 1em;">
-                <p style="margin-bottom: -1em">binary distro</p>
-                <h3 class="noselect"><a id="distroSelector" onclick="distroSelector()">select</a></h3>
-            </div>
-            <div style="text-align: center; padding: 1em;">
-                <p style="margin-bottom: -1em">remote password</p>
-                <h3 class="noselect"><a id="remotePasswordSelector" onclick="remotePasswordSelector()">No</a></h3>
-            </div>
-        </div>
-        <div id="burnButtonContainer" style="text-align: center" hidden>
-            <button id="submitBtn" style="width: 50em;"
-                    class="g-recaptcha"
-                    data-sitekey="6LeUMCMaAAAAABmP3FZtGTOFcGDgpGR0Z0pI7j2R"
-                    data-callback='burnSubmit'
-                    data-theme="dark"
-                    data-button="outline">
-                <p>Burn New Floxy</p>
-            </button>
-
         </div>
     </div>
+
+    <div id="formPage" style="display: flex;width: 100%;height: 100%;justify-content: center;align-items: center;padding: 15px;flex-direction: column;flex-wrap: wrap;">
+        <div style="text-align: center; padding: 1em;">
+            <h3 style="margin-bottom: -0.5em">binary expiration: </h3>
+            <span><h3 class="noselect"><a id="binaryExpSelector" onclick="binaryExpSelector()">select</a></h3></span>
+        </div>
+        <div style="text-align: center; padding: 1em;">
+            <h3 style="margin-bottom: -0.5em">local distro: </h3>
+            <span><h3 class="noselect"><a id="localDistroSelector" onclick="localDistroSelector()">select</a></h3></span>
+        </div>
+        <div style="text-align: center; padding: 1em;">
+            <h3 style="margin-bottom: -0.5em">remote distro: </h3>
+            <span><h3 class="noselect"><a id="remoteDistroSelector" onclick="remoteDistroSelector()">select</a></h3></span>
+        </div>
+        <div style="text-align: center; padding: 1em;">
+            <span><h3 id="burnButton" class="noselect disabled"><a onclick="submit()">BURN</a></h3></span>
+        </div>
+
+    </div>
+
+
 
     <div id="aboutPage">
         <div style="padding: 15px;text-align: center;">
@@ -113,14 +113,14 @@
             <h2>download & share!</h2>
         </div>
         <div style="display: block;padding: 25px;">
-            <p><a id="copyLink" href="#">click here</a>
+            <p><a class="copyLink" href="#">click here</a>
                 to download file on local and remote. After download, execute
                 the command bellow on each computer:
             </p>
-            <p><code>local>./floxy -k=local -h {{host:ip}}</code></p>
-            <p><code class="remoteCode">remote>./floxy -k=remote -h {{host:ip}}</code></p>
+            <p><code>local>./floxyL -h {{host:ip}}</code></p>
+            <p><code class="remoteCode">remote>./floxyR -h {{host:ip}}</code></p>
             <p style="text-align: center">
-                for security reason, the download link will expire in
+                for security reason, the <a class="copyLink" href="#">download link</a> will expire in
             </p>
             <p style="text-align: center" id="shareExpSecurity"></p>
             <p style="text-align: center">

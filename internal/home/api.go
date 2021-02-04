@@ -32,20 +32,21 @@ func Start(){
 	go func(){
 		e = echo.New()
 		e.Static("/", AssetsPath)
-		e.Static("/burn", AssetsPath)
+		e.Static("/burnApi", AssetsPath)
 		e.Static("/about", AssetsPath)
+		e.Static("/form", AssetsPath)
 		e.Static("/share/:fingerprint", AssetsPath)
-		e.GET("/api/download/:fingerprint/:kind", downloadBinary)
+		e.GET("/api/download/:fingerprint/floxy", downloadBinary)
 		e.GET("/api/floxy/:fingerprint", getHostByFingerprint)
 		e.GET("/internal/hosts", getAllHosts)
 		e.GET("/internal/exclude", excludeNotActive)
-		e.POST("/api/floxy/burn", burn)
+		e.POST("/api/floxy/burn", burnApi)
 		e.Logger.Fatal(e.Start(":8080"))
 	}()
 }
 
 func downloadBinary(c echo.Context) error{
-	file := fmt.Sprintf("internal/home/cooked_bin/%s/%s", c.Param("fingerprint"), c.Param("kind"))
+	file := fmt.Sprintf("internal/home/cooked_bin/%s/compress/floxy.zip", c.Param("fingerprint"))
 	log.Println(file)
 	return c.File(file)
 }
@@ -114,9 +115,10 @@ type burnRequest struct {
 	Token          string
 	Expiration     int
 	RemotePassword bool
+	Distro         []compiler.DistroRequest
 }
 
-func burn(c echo.Context) error{
+func burnApi(c echo.Context) error{
 	var request burnRequest
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(200, burnResponse{Status: "ssh_err"})
@@ -152,6 +154,7 @@ func burn(c echo.Context) error{
 		PKey:           serverHost.PrivateKey,
 		FingerPrint:    fingerPrint,
 		RemotePassword: remotePass,
+		Distro:         request.Distro,
 	})
 
 	if err != nil{

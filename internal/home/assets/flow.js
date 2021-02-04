@@ -11,26 +11,36 @@ window.onpopstate = function(event) {
 function flow() {
     $("#home").hide();
     $("#aboutPage").hide();
-    $("#burn").hide();
+    $("#formPage").hide();
+    $("#burnPage").hide();
     $("#noLinkSharePage").hide();
     $('#burning').hide();
     $('#sharePage').hide();
     if (window.location.pathname.includes('burn')) {
-        $("#burn").show();
+        $("#burnPage").show();
     }else if (window.location.pathname.includes('share')) {
         const fingerprint = window.location.pathname.split('share/')[1].split('/')[0]
         getFloxy(fingerprint)
     }else if (window.location.pathname.includes('about')) {
         $("#aboutPage").show();
+    }else if (window.location.pathname.includes('form')) {
+        $("#formPage").show();
     }else {
         $("#home").show();
     }
 }
 
+function goToFormPage() {
+    window.history.pushState({}, 'Form', '/form');
+    $("#burnPage").fadeOut("slow",function() {
+        $("#formPage").fadeIn("slow");
+    })
+}
+
 function toBurnpage() {
     window.history.pushState({}, 'Burn floxy', '/burn');
     $("#home").fadeOut("slow",function() {
-        $("#burn").fadeIn("slow");
+        $("#burnPage").fadeIn("slow");
     })
 }
 
@@ -39,6 +49,46 @@ function toAboutpage() {
     $("#home").fadeOut("slow",function() {
         $("#aboutPage").fadeIn("slow");
     })
+}
+
+function activateForm(idx) {
+
+    const last2Form = "#formQ" + (idx - 2);
+    const lastForm = "#formQ" + (idx - 1);
+    const currForm = "#formQ" + idx;
+    const nextForm = "#formQ" + (idx + 1);
+    const next2Form = "#formQ" + (idx + 2);
+
+
+    if ($(currForm).hasClass( "inactive")){
+        if ($(lastForm).hasClass( "active")){
+            $("#formContainer").animate({
+                top: '-=15em'
+            }, 400);
+        }else {
+            $("#formContainer").animate({
+                top: '+=15em'
+            }, 400);
+        }
+
+
+        $(last2Form).addClass("invisible");
+
+        $(lastForm).removeClass("invisible");
+        $(lastForm).removeClass("active");
+        $(lastForm).addClass("inactive");
+
+        $(currForm).removeClass("inactive");
+        $(currForm).removeClass("invisible");
+        $(currForm).addClass("active");
+
+        $(nextForm).addClass("inactive");
+        $(nextForm).removeClass("invisible");
+        $(nextForm).removeClass("active");
+
+        $(next2Form).addClass("invisible");
+
+    }
 }
 
 const binaryExpOptions = [{text: '1 hour', value: 1}, {text: '1 day', value: 24}, {text: '10 days', value: 24 * 10}, {text: '1 month', value: 24 * 10 * 30}];
@@ -51,19 +101,36 @@ function binaryExpSelector() {
         binaryExpSelected = 0;
     }
     $("#binaryExpSelector").text(binaryExpOptions[binaryExpSelected].text)
-    enableBurnButton()
+    if (canSubmit()){
+        $("#burnButton").removeClass("disabled")
+    }
 }
 
-const distroOptions = ['Linux'];
-let distroSelected = -1;
+const distroOptions = [{os: 'linux', platform: 'amd64', distro: 'Linux amd64'},{os: 'darwin',platform: 'amd64', distro: 'Darwin amd64'},{os: 'windows', platform: 'amd64', distro: 'Win amd64'}];
+let localDistroSelected = -1;
 
-function distroSelector() {
-    distroSelected++;
-    if (distroSelected > distroOptions.length -1){
-        distroSelected = 0;
+function localDistroSelector() {
+    localDistroSelected++;
+    if (localDistroSelected > distroOptions.length -1){
+        localDistroSelected = 0;
     }
-    $("#distroSelector").text(distroOptions[distroSelected])
-    enableBurnButton()
+    $("#localDistroSelector").text(distroOptions[localDistroSelected].distro)
+    if (canSubmit()){
+        $("#burnButton").removeClass("disabled")
+    }
+}
+
+let remoteDistroSelected = -1;
+
+function remoteDistroSelector() {
+    remoteDistroSelected++;
+    if (remoteDistroSelected > distroOptions.length -1){
+        remoteDistroSelected = 0;
+    }
+    $("#remoteDistroSelector").text(distroOptions[remoteDistroSelected].distro)
+    if (canSubmit()){
+        $("#burnButton").removeClass("disabled")
+    }
 }
 
 const remotePasswordOptions = ['No', 'Yes'];
@@ -75,17 +142,31 @@ function remotePasswordSelector() {
         remotePasswordSelected = 0;
     }
     $("#remotePasswordSelector").text(remotePasswordOptions[remotePasswordSelected])
-    enableBurnButton()
-}
-
-function enableBurnButton(){
-    if (binaryExpSelected !== -1 && distroSelected !== -1 && remotePasswordSelected !== -1){
-        $("#burnButtonContainer").fadeIn();
+    if (canSubmit()){
+        $("#burnButton").removeClass("disabled")
     }
 }
 
+function canSubmit(){
+    if (binaryExpSelected !== -1 && localDistroSelected !== -1 && remoteDistroSelected !== -1){
+        return true;
+    }
+    return false;
+}
+
+function submit() {
+    grecaptcha.ready(function() {
+        grecaptcha.execute('6LeUMCMaAAAAABmP3FZtGTOFcGDgpGR0Z0pI7j2R', {action: 'submit'}).then(function(token) {
+            burnSubmit(token)
+        });
+    });
+}
+
 function burnSubmit(token) {
-    $("#burn").fadeOut("slow",function() {
+    if (!canSubmit()){
+        return
+    }
+    $("#formPage").fadeOut("slow",function() {
         startBurn()
         $("#burning").fadeIn("slow",function() {
             Http.open("POST", 'http://localhost:8080/api/floxy/burn');
@@ -94,6 +175,10 @@ function burnSubmit(token) {
                 {
                     "remotePassword": remotePasswordSelected === 1,
                     "expiration": binaryExpOptions[binaryExpSelected].value,
+                    "distro": [
+                        {'kind': 'local', 'os': distroOptions[localDistroSelected].os, 'platform': distroOptions[localDistroSelected].platform},
+                        {'kind': 'remote', 'os': distroOptions[remoteDistroSelected].os, 'platform': distroOptions[remoteDistroSelected].platform}
+                    ],
                     "token": token,
                 }
             );
@@ -134,7 +219,7 @@ function burnSubmit(token) {
 
 function getFloxy(fingerprint) {
     stopBurn();
-    $("#copyLink").attr("href", `http://localhost:8080/api/download/${fingerprint}/floxy`)
+    $(".copyLink").attr("href", `http://localhost:8080/api/download/${fingerprint}/floxy`)
 
     Http.open("GET", `http://localhost:8080/api/floxy/${fingerprint}`);
 
@@ -145,7 +230,7 @@ function getFloxy(fingerprint) {
             if (Http.status === 200){
                 const resJson = JSON.parse(res);
                 if (resJson.remotePassword !== null && resJson.remotePassword !== ""){
-                    $(".remoteCode").text(`remote>./floxy -k=remote -p=${resJson.remotePassword} -h {{host:ip}}`)
+                    $(".remoteCode").text(`remote>./floxyL -k=remote -p=${resJson.remotePassword} -h {{host:ip}}`)
                 }
                 $("#shareExpSecurity").text(`${resJson.linkExpiration} minute(s)`)
                 $("#sharePage").fadeIn("slow");

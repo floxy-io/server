@@ -47,7 +47,7 @@ func main() {
 	if SshHost == "" {
 		SshHost = os.Getenv("FLOXY_SSH_HOST")
 	}
-	log.Println(fmt.Sprintf("init %s on fingerprint !", FingerPrint))
+	log.Println(fmt.Sprintf("init Floxy binary fingerprint firsts digits: %s", strings.Split(FingerPrint, "-")[0]))
 
 	if Kind == "" {
 		if flagKind == nil || *flagKind == "" {

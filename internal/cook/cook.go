@@ -203,7 +203,6 @@ func startLocalProxy(config localProxyConfig) error {
 	serverPort := string(b)
 
 	// start listen to proxy
-	fmt.Println(fmt.Sprintf("start listening: (%s)", config.ProxyHost))
 	hostListener, err := net.Listen("tcp", config.ProxyHost)
 	if err != nil {
 		return err

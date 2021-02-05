@@ -111,7 +111,7 @@ func compile(req compileRequest)error{
 
 	executable := filepath.Join(req.Folder, req.Distro.binaryName())
 
-	cmdArgs := append([]string{"build"}, "-ldflags", ldFlags, "-a", "-tags", "netgo")
+	cmdArgs := append([]string{"build"}, "-ldflags", ldFlags)
 	cmdArgs = append(cmdArgs, "-o", executable, "internal/cook/cook.go")
 
 	build := exec.Command("go", cmdArgs...)

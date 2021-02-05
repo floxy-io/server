@@ -22,6 +22,7 @@ function flow() {
         const fingerprint = window.location.pathname.split('share/')[1].split('/')[0]
         getFloxy(fingerprint)
     }else if (window.location.pathname.includes('about')) {
+        $("#canvas").fadeTo( "slow" , 0.5)
         $("#aboutPage").show();
     }else if (window.location.pathname.includes('form')) {
         $("#formPage").show();
@@ -31,6 +32,7 @@ function flow() {
 }
 
 function goToFormPage() {
+    $("#canvas").fadeTo( "slow" , 0.5)
     window.history.pushState({}, 'Form', '/form');
     $("#burnPage").fadeOut("slow",function() {
         $("#formPage").fadeIn("slow");
@@ -38,6 +40,7 @@ function goToFormPage() {
 }
 
 function toBurnpage() {
+    $("#canvas").fadeTo( "slow" , 1)
     window.history.pushState({}, 'Burn floxy', '/burn');
     $("#home").fadeOut("slow",function() {
         $("#burnPage").fadeIn("slow");
@@ -45,6 +48,7 @@ function toBurnpage() {
 }
 
 function toAboutpage() {
+    $("#canvas").fadeTo( "slow" , 0.5)
     window.history.pushState({}, 'About', '/about');
     $("#home").fadeOut("slow",function() {
         $("#aboutPage").fadeIn("slow");
@@ -166,6 +170,7 @@ function burnSubmit(token) {
     if (!canSubmit()){
         return
     }
+    $("#canvas").fadeTo( "slow" , 1)
     $("#formPage").fadeOut("slow",function() {
         startBurn()
         $("#burning").fadeIn("slow",function() {
@@ -218,6 +223,7 @@ function burnSubmit(token) {
 }
 
 function getFloxy(fingerprint) {
+    $("#canvas").fadeTo( "slow" , 0.5)
     stopBurn();
     $(".copyLink").attr("href", `http://localhost:8080/api/download/${fingerprint}/floxy`)
 

@@ -186,7 +186,6 @@ func startLocalProxy(config localProxyConfig) error {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 	// Connect to SSH remote server using serverEndpoint
-	fmt.Println("start connection to server: ", config.SshHost)
 	serverClient, err := ssh.Dial("tcp", config.SshHost, sshConfig)
 	if err != nil {
 		return fmt.Errorf("(%s) dial INTO remote server error: %s", time.Now(), err)

@@ -63,17 +63,23 @@ func main() {
 	if len(strings.Split(*proxyHost, ":")) != 2 {
 		log.Fatal("You must specify host:port")
 	}
+	finalProxyHost := strings.ReplaceAll(*proxyHost, "\n", "")
+	finalProxyHost = strings.ReplaceAll(finalProxyHost, "\r", "")
 
 	var err error
 
 	switch Kind {
 	case "local":
-		err = startLocalProxy(localProxyConfig{
-			PrivateKey:  PrivateKey,
-			Fingerprint: FingerPrint,
-			SshHost:     SshHost,
-			ProxyHost:   proxyHost,
-		})
+		for {
+			err = startLocalProxy(localProxyConfig{
+				PrivateKey:  PrivateKey,
+				Fingerprint: FingerPrint,
+				SshHost:     SshHost,
+				ProxyHost:   finalProxyHost,
+			})
+			log.Println("error on local connection: ", err)
+			time.Sleep(1 * time.Second)
+		}
 	case "remote":
 		if RemotePassword != "" && *flagPassword != RemotePassword {
 			log.Fatal("password protected remote, please use flag -p with a correct password")
@@ -82,7 +88,7 @@ func main() {
 			PrivateKey:  PrivateKey,
 			Fingerprint: FingerPrint,
 			SshHost:     SshHost,
-			ProxyHost:   proxyHost,
+			ProxyHost:   finalProxyHost,
 		})
 	default:
 		log.Fatal("cannot find kind")
@@ -97,7 +103,7 @@ type remoteProxyConfig struct {
 	PrivateKey  string
 	Fingerprint string
 	SshHost     string
-	ProxyHost   *string
+	ProxyHost   string
 }
 
 func startRemoteProxy(config remoteProxyConfig) error {
@@ -140,7 +146,7 @@ func startRemoteProxy(config remoteProxyConfig) error {
 		if err != nil {
 			log.Fatal(err)
 		}
-		proxyConn, err := net.Dial("tcp", *config.ProxyHost)
+		proxyConn, err := net.Dial("tcp", config.ProxyHost)
 		if err != nil {
 			continue
 		}
@@ -166,7 +172,7 @@ type localProxyConfig struct {
 	PrivateKey  string
 	Fingerprint string
 	SshHost     string
-	ProxyHost   *string
+	ProxyHost   string
 }
 
 func startLocalProxy(config localProxyConfig) error {
@@ -180,6 +186,7 @@ func startLocalProxy(config localProxyConfig) error {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 	// Connect to SSH remote server using serverEndpoint
+	fmt.Println("start connection to server: ", config.SshHost)
 	serverClient, err := ssh.Dial("tcp", config.SshHost, sshConfig)
 	if err != nil {
 		return fmt.Errorf("(%s) dial INTO remote server error: %s", time.Now(), err)
@@ -196,7 +203,8 @@ func startLocalProxy(config localProxyConfig) error {
 	serverPort := string(b)
 
 	// start listen to proxy
-	hostListener, err := net.Listen("tcp", *config.ProxyHost)
+	fmt.Println(fmt.Sprintf("start listening: (%s)", config.ProxyHost))
+	hostListener, err := net.Listen("tcp", config.ProxyHost)
 	if err != nil {
 		return err
 	}
@@ -212,8 +220,7 @@ func startLocalProxy(config localProxyConfig) error {
 		serverConn, err := serverClient.Dial("tcp", fmt.Sprintf("localhost:%s", serverPort))
 		if err != nil {
 			log.Println(fmt.Sprintf("(%s) cannot call proxy server!", time.Now()))
-			time.Sleep(1 * time.Second)
-			continue
+			return err
 		}
 
 		waitUntilEnd := make(chan bool)

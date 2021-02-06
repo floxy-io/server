@@ -33,6 +33,7 @@ func Start(){
 		e = echo.New()
 		e.Static("/", AssetsPath)
 		e.Static("/burnApi", AssetsPath)
+		e.Static("/burn", AssetsPath)
 		e.Static("/about", AssetsPath)
 		e.Static("/form", AssetsPath)
 		e.Static("/share/:fingerprint", AssetsPath)

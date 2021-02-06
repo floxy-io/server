@@ -87,8 +87,47 @@
             </p>
         </div>
 
-        <div style="display: flex;padding: 15px;text-align: center;">
-            <p><code>></code></p>
+        <div style="display: block;padding: 15px;text-align: left;">
+            <p><code>></code>great for developers that has needs to expose a service or preview a feature to other peer.</p>
+            <p><code>></code>great for raspberry's owners that need a security access to your device over the internet.</p>
+            <p><code>></code>great shortcut to access features from old VMs (like DB connections, or other services provided by then</p>
+        </div>
+
+        <div style="display: block;padding: 15px;">
+            <h3>Frequent questions</h3>
+            <p><b>It's really secure?</b> Yes! The binary is unique, and only available to download for
+                few minutes. After that we remove it from server.
+            </p>
+            <p><b>What is binary made of?</b>
+                The binary contains a fingerprint, a ssh address to connect to our server, and
+                a private key (created on burning time). Both local and remote binary share the same
+                private key and fingerprint to close connection between each other.
+            </p>
+            <p><b>If I leak the local binary, everybody can access the remote?</b>
+                Yes! You have to take cautions to do not leak this binary. Only delivery to people
+                of your trust. In floxy service side, this binary only remains for 10 minutes after
+                creation, after that, It wont be available to download anymore.
+            </p>
+            <p><b>The binary private key is persisted on server?</b>
+                No! The private key is created in program memory, and only remains during binary creation.
+                After that, no trace of private key exists in our side. We only persist the public key
+                send by binary during handshake connection.
+            </p>
+            <p><b>Service is free?</b>
+                Yes, is totally free, and no login required. The binary has a lifetime, and during that,
+                you can use it, and share!
+            </p>
+            <p><b>Can I use to productive cases?</b>
+                No! This service is only for developing purpose. Don't use it for productive case, because
+                we don't guarantee high uptime on our server. There isn't any load balancing strategy on
+                Floxy services
+            </p>
+            <p><b>Floxy is open source?</b>
+                Not yet! For security reasons we didn't provide our code yet.
+            </p>
+            <p><b>For bugs How can I contact floxy?</b>
+                This is your github issues channel! =)
+            </p>
         </div>
     </div>
 
@@ -112,9 +151,12 @@
             <span id="downloadLink">
             </span>
             <p style="text-align: center">
-                for security reason, the <a class="copyLink" href="#">download link</a> will expire in
+                for security reason, the download link will expire in
             </p>
             <p style="text-align: center" id="shareExpSecurity"></p>
+            <p style="text-align: center">
+                For FAQ or bug issues, access our <a href="https://github.com/danielsussa/floxy-docs">github page</a>
+            </p>
             <p style="text-align: center">
                 thanks for using floxy!
             </p>

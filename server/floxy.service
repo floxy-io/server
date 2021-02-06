@@ -1,0 +1,20 @@
+[Unit]
+Description=Floxy Service
+#StartLimitIntervalSec=0
+[Service]
+Environment="PATH=/usr/local/go/bin"
+Environment="GOPATH=/home/danielsussa/go"
+Environment="LOG_KEY=true"
+Environment="GOCACHE=/home/danielsussa/.cache/go-build"
+Environment="FLOXY_SSH_HOST=ssh1.floxy.io:2222"
+WorkingDirectory=/home/danielsussa/go/src/github.com/danielsussa/floxy
+Type=simple
+#Restart=always
+Restart=on-failure
+RestartSec=5
+#User=danielsussa
+#Group=danielsussa
+ExecStart=/home/danielsussa/go/src/github.com/danielsussa/floxy/build/floxy
+
+[Install]
+WantedBy=multi-user.target

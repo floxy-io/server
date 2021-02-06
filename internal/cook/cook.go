@@ -150,11 +150,11 @@ func startRemoteProxy(config remoteProxyConfig) error {
 		if err != nil {
 			continue
 		}
-		handleConn(serverConn, proxyConn)
+		go handleRemoteConn(serverConn, proxyConn)
 	}
 }
 
-func handleConn(serverConn, proxyConn net.Conn) {
+func handleRemoteConn(serverConn, proxyConn net.Conn) {
 	waitUntilEnd := make(chan bool)
 	go func() {
 		_, _ = io.Copy(serverConn, proxyConn)
@@ -221,18 +221,23 @@ func startLocalProxy(config localProxyConfig) error {
 			return err
 		}
 
-		waitUntilEnd := make(chan bool)
+		go handleLocal(listenerConn, serverConn)
 
-		go func() {
-			_, err = io.Copy(listenerConn, serverConn)
-			listenerConn.Close()
-			waitUntilEnd <- true
-		}()
-
-		_, err = io.Copy(serverConn, listenerConn)
-		serverConn.Close()
-		<-waitUntilEnd
 	}
+}
+
+func handleLocal(listenerConn, serverConn net.Conn){
+	waitUntilEnd := make(chan bool)
+
+	go func() {
+		_, _ = io.Copy(listenerConn, serverConn)
+		listenerConn.Close()
+		waitUntilEnd <- true
+	}()
+
+	_, _ = io.Copy(serverConn, listenerConn)
+	serverConn.Close()
+	<-waitUntilEnd
 }
 
 func publicKey() ssh.AuthMethod {

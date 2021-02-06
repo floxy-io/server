@@ -52,6 +52,8 @@ func main() {
 	if Kind == "" {
 		if flagKind == nil || *flagKind == "" {
 			log.Fatal("Must use flag -k to specify local or remote")
+		}else {
+			Kind = *flagKind
 		}
 	}
 
@@ -146,15 +148,16 @@ func startRemoteProxy(config remoteProxyConfig) error {
 		if err != nil {
 			log.Fatal(err)
 		}
-		proxyConn, err := net.Dial("tcp", config.ProxyHost)
-		if err != nil {
-			continue
-		}
-		go handleRemoteConn(serverConn, proxyConn)
+
+		go handleRemoteConn(serverConn, config.ProxyHost)
 	}
 }
 
-func handleRemoteConn(serverConn, proxyConn net.Conn) {
+func handleRemoteConn(serverConn net.Conn, host string) {
+	proxyConn, err := net.Dial("tcp", host)
+	if err != nil {
+		return
+	}
 	waitUntilEnd := make(chan bool)
 	go func() {
 		_, _ = io.Copy(serverConn, proxyConn)
@@ -215,18 +218,17 @@ func startLocalProxy(config localProxyConfig) error {
 			return err
 		}
 
-		serverConn, err := serverClient.Dial("tcp", fmt.Sprintf("localhost:%s", serverPort))
-		if err != nil {
-			log.Println(fmt.Sprintf("(%s) cannot call proxy server!", time.Now()))
-			return err
-		}
-
-		go handleLocal(listenerConn, serverConn)
-
+		go handleLocal(listenerConn, serverClient, serverPort)
 	}
 }
 
-func handleLocal(listenerConn, serverConn net.Conn){
+func handleLocal(listenerConn net.Conn, serverClient *ssh.Client, port string){
+	serverConn, err := serverClient.Dial("tcp", fmt.Sprintf("localhost:%s", port))
+	if err != nil {
+		log.Println(fmt.Sprintf("(%s) cannot call proxy server!", time.Now()))
+		return
+	}
+
 	waitUntilEnd := make(chan bool)
 
 	go func() {

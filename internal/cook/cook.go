@@ -207,17 +207,17 @@ func startLocalProxy(config localProxyConfig) error {
 		return err
 	}
 
+	serverConn, err := serverClient.Dial("tcp", fmt.Sprintf("localhost:%s", serverPort))
+	if err != nil {
+		log.Println(fmt.Sprintf("(%s) cannot call proxy server!", time.Now()))
+		return err
+	}
+
 	log.Println(fmt.Sprintf("(%s) FloxyL success connect to server!", time.Now()))
 
 	for {
 		listenerConn, err := hostListener.Accept()
 		if err != nil {
-			return err
-		}
-
-		serverConn, err := serverClient.Dial("tcp", fmt.Sprintf("localhost:%s", serverPort))
-		if err != nil {
-			log.Println(fmt.Sprintf("(%s) cannot call proxy server!", time.Now()))
 			return err
 		}
 

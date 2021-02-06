@@ -8,8 +8,18 @@ import (
 )
 
 var insertOnTable = `
-INSERT INTO floxy (fingerprint, publicKey, port, createdAt, remotePassword, expireAt)
-VALUES(?,?,?,?,?,?);
+INSERT INTO floxy (fingerprint,status)
+VALUES(?,'burning');
+`
+
+var updateOnTable = `
+UPDATE floxy SET publicKey=?,port=?,createdAt=?, remotePassword=?, expireAt=?
+WHERE fingerprint=?;
+`
+
+var setStatusOnTable = `
+UPDATE floxy SET status=?
+WHERE fingerprint=?;
 `
 
 type Floxy struct {
@@ -20,7 +30,22 @@ type Floxy struct {
 	CreatedAt      time.Time `json:"createdAt"`
 	Activated      bool `json:"isActive"`
 	Port           int `json:"-"`
+	Status         string `json:"status"`
 }
+
+type FloxyBinary struct {
+	Parent         string `json:"parent"`
+	Fingerprint    string `json:"fingerPrint"`
+	Kind           string `json:"kind"`
+	Os             string `json:"os"`
+	Platform       string `json:"platform"`
+}
+
+var addChildOnTable = `
+INSERT INTO floxy_binary (parent,fingerprint,kind,os,platform)
+VALUES(?,?,?,?,?);
+`
+
 
 func (f Floxy) IsActive()bool{
 	if time.Now().Sub(f.CreatedAt).Minutes() < 30 {
@@ -42,13 +67,67 @@ func (f Floxy) ExpiredLink()bool{
 	return false
 }
 
-func AddNewFloxy(k Floxy)error{
+func AddNewFloxy(fingerPrint string)error{
 	dbConn := db.Get()
 	stmt, err := dbConn.Prepare(insertOnTable)
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec(k.Fingerprint,base64.StdEncoding.EncodeToString(k.PublicKey), k.Port, time.Now(), k.RemotePassword, k.Expiration)
+	_, err = stmt.Exec(fingerPrint)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+
+
+func AddFloxyBinary(bin FloxyBinary)error{
+	dbConn := db.Get()
+	stmt, err := dbConn.Prepare(addChildOnTable)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(bin.Parent, bin.Fingerprint, bin.Kind, bin.Os, bin.Platform)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func SetFailed(fingerPrint string)error{
+	dbConn := db.Get()
+	stmt, err := dbConn.Prepare(setStatusOnTable)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec("failed", fingerPrint)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func SetActive(fingerPrint string)error{
+	dbConn := db.Get()
+	stmt, err := dbConn.Prepare(setStatusOnTable)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec("active", fingerPrint)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func UpdateFloxy(k Floxy)error{
+	dbConn := db.Get()
+	stmt, err := dbConn.Prepare(updateOnTable)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(base64.StdEncoding.EncodeToString(k.PublicKey), k.Port, time.Now(), k.RemotePassword, k.Expiration,k.Fingerprint)
 	if err != nil {
 		return err
 	}
@@ -87,7 +166,7 @@ func GetByUserAndKey(user string, public []byte)(Floxy, error){
 func GetByFingerprint(fingerprint string)(Floxy, error){
 
 	dbConn := db.Get()
-	row, err := dbConn.Query("SELECT fingerprint,publicKey,port,remotePassword,expireAt,createdAt FROM floxy WHERE fingerprint=?", fingerprint)
+	row, err := dbConn.Query("SELECT fingerprint,publicKey,port,remotePassword,expireAt,createdAt,status FROM floxy WHERE fingerprint=?", fingerprint)
 	if err != nil {
 		return Floxy{}, err
 	}
@@ -95,17 +174,22 @@ func GetByFingerprint(fingerprint string)(Floxy, error){
 
 	for row.Next() {
 		var fingerprint string
-		var publicKey string
+		var publicKey *string
 		var remotePass *string
-		var expireAt time.Time
-		var createdAt time.Time
-		var port int
-		err = row.Scan(&fingerprint, &publicKey, &port, &remotePass, &expireAt, &createdAt)
+		var expireAt *time.Time
+		var createdAt *time.Time
+		var port *int
+		var status string
+		err = row.Scan(&fingerprint, &publicKey, &port, &remotePass, &expireAt, &createdAt, &status)
 		if err != nil {
 			return Floxy{}, err
 		}
 
-		publicDec, err := base64.StdEncoding.DecodeString(publicKey)
+		if status == "burning"{
+			return Floxy{Status: status, Fingerprint: fingerprint}, nil
+		}
+
+		publicDec, err := base64.StdEncoding.DecodeString(*publicKey)
 		if err != nil {
 			return Floxy{}, err
 		}
@@ -113,12 +197,42 @@ func GetByFingerprint(fingerprint string)(Floxy, error){
 			PublicKey:      publicDec,
 			Fingerprint:    fingerprint,
 			RemotePassword: remotePass,
-			Expiration:     expireAt,
-			CreatedAt:      createdAt,
-			Port:           port,
+			Expiration:     *expireAt,
+			CreatedAt:      *createdAt,
+			Port:           *port,
+			Status:         status,
 		}, nil
 	}
 	return Floxy{}, fmt.Errorf("no scan")
+}
+
+func GetFloxyBinaries(parent string)([]FloxyBinary, error){
+	binaries := make([]FloxyBinary, 0)
+	dbConn := db.Get()
+	row, err := dbConn.Query("SELECT fingerprint,kind,os,platform FROM floxy_binary WHERE parent=?", parent)
+	if err != nil {
+		return binaries, err
+	}
+	defer row.Close()
+
+	for row.Next() {
+		var fingerprint string
+		var kind string
+		var os string
+		var plat string
+		err = row.Scan(&fingerprint, &kind, &os, &plat)
+		if err != nil {
+			return binaries, err
+		}
+		binaries = append(binaries, FloxyBinary{
+			Parent:      parent,
+			Fingerprint: fingerprint,
+			Kind:        kind,
+			Os:          os,
+			Platform:    plat,
+		})
+	}
+	return binaries, nil
 }
 
 func GetAll() ([]Floxy, error){

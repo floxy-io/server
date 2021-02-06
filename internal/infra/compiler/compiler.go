@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"log"
 	"os"
@@ -28,6 +29,14 @@ type DistroRequest struct {
 
 type MakeResponse struct {
 	FingerPrint string
+	ChildBinary []ChildBinary
+}
+
+type ChildBinary struct {
+	Fingerprint string
+	Kind        string
+	Os          string
+	Platform    string
 }
 
 var mutex sync.Mutex
@@ -50,8 +59,10 @@ func Make(req MakeRequest)(MakeResponse, error){
 		}
 	}
 
+	childs := make([]ChildBinary,0)
+
 	for _, distro := range req.Distro {
-		err := compile(compileRequest{
+		cFingerprint, err := compile(compileRequest{
 			FingerPrint: req.FingerPrint,
 			PKey:        req.PKey,
 			Password:    req.RemotePassword,
@@ -61,18 +72,19 @@ func Make(req MakeRequest)(MakeResponse, error){
 		if err != nil {
 			return MakeResponse{}, err
 		}
-	}
-
-	err := zipFile(folder)
-	if err != nil {
-		return MakeResponse{}, err
+		childs = append(childs, ChildBinary{
+			Fingerprint: cFingerprint,
+			Kind:        distro.Kind,
+			Os:          distro.Os,
+			Platform:    distro.Platform,
+		})
 	}
 
 	if os.Getenv("LOG_KEY") == "true"{
 		log.Println("\nkey: ", req.PKey, "\nfingerprint: ", req.FingerPrint)
 	}
 
-	return MakeResponse{FingerPrint: req.FingerPrint}, nil
+	return MakeResponse{FingerPrint: req.FingerPrint, ChildBinary: childs}, nil
 }
 
 var CustomGoPath string
@@ -87,10 +99,7 @@ type compileRequest struct {
 }
 
 func (d DistroRequest)binaryName()string{
-	name := "floxyR"
-	if d.Kind == "local"{
-		name = "floxyL"
-	}
+	name := "floxy"
 	if strings.Contains(d.Os, "windows"){
 		name += ".exe"
 	}
@@ -103,13 +112,20 @@ func (d DistroRequest) envs()[]string{
 	return f1
 }
 
-func compile(req compileRequest)error{
+func compile(req compileRequest)(string, error){
 	ldFlags := fmt.Sprintf("-X main.FingerPrint=%s -X main.PrivateKey=%s -X main.SshHost=%s -X main.Kind=%s", req.FingerPrint, req.PKey, os.Getenv("FLOXY_SSH_HOST"), req.Distro.Kind)
 	if req.Password != nil {
 		ldFlags += fmt.Sprintf(" -X main.RemotePassword=%s", *req.Password)
 	}
+	cFingerprint := uuid.New().String()
 
-	executable := filepath.Join(req.Folder, req.Distro.binaryName())
+	err := os.Mkdir(filepath.Join(req.Folder,cFingerprint), 0700)
+	if err != nil {
+		return "", err
+	}
+
+
+	executable := filepath.Join(req.Folder,cFingerprint, req.Distro.binaryName())
 
 	cmdArgs := append([]string{"build"}, "-ldflags", ldFlags)
 	cmdArgs = append(cmdArgs, "-o", executable, "internal/cook/cook.go")
@@ -118,11 +134,11 @@ func compile(req compileRequest)error{
 	build.Env = append(build.Env,os.Environ()...)
 	build.Env = append(build.Env, req.Distro.envs()...)
 
-	_, err := build.CombinedOutput()
+	_, err = build.CombinedOutput()
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return cFingerprint, nil
 }
 
 func tarFile(folder string)error{

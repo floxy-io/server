@@ -36,8 +36,9 @@ func Start(){
 		e.Static("/about", AssetsPath)
 		e.Static("/form", AssetsPath)
 		e.Static("/share/:fingerprint", AssetsPath)
-		e.GET("/api/download/:fingerprint/floxy", downloadBinary)
-		e.GET("/api/floxy/:fingerprint", getHostByFingerprint)
+		e.GET("/api/download/:fingerprint/:binary/:kind", downloadBinary)
+		e.GET("/api/floxy/:fingerprint", getFloxy)
+		e.GET("/api/floxy/:fingerprint/status", getFloxy)
 		e.GET("/internal/hosts", getAllHosts)
 		e.GET("/internal/exclude", excludeNotActive)
 		e.POST("/api/floxy/burn", burnApi)
@@ -46,7 +47,7 @@ func Start(){
 }
 
 func downloadBinary(c echo.Context) error{
-	file := fmt.Sprintf("internal/home/cooked_bin/%s/compress/floxy.zip", c.Param("fingerprint"))
+	file := fmt.Sprintf("internal/home/cooked_bin/%s/%s/floxy", c.Param("fingerprint"),c.Param("binary"))
 	log.Println(file)
 	return c.File(file)
 }
@@ -91,23 +92,59 @@ func excludeNotActive(c echo.Context)error{
 type getHostResponse struct {
 	Fingerprint    string `json:"fingerPrint"`
 	RemotePassword *string `json:"remotePassword"`
-	LinkExpiration int `json:"linkExpiration"`
+	LinkExpiration int     `json:"linkExpiration"`
+	Status         string  `json:"status"`
+	Binaries       []hostBinary `json:"binaries"`
 }
 
-func getHostByFingerprint(c echo.Context)error{
+type hostBinary struct {
+	Fingerprint string `json:"fingerPrint"`
+	Kind        string `json:"kind"`
+	Os          string `json:"os"`
+	Platform    string `json:"platform"`
+
+}
+
+func getFloxy(c echo.Context)error{
 	sshHosts, err := repo.GetByFingerprint(c.Param("fingerprint"))
 	if err != nil {
 		log.Println(err)
 		return c.String(503, "cannot access this page")
 	}
+
+	if sshHosts.Status == "burning" {
+		return c.JSON(200, getHostResponse{
+			Status:         sshHosts.Status,
+		})
+	}
+
 	expLink := int(10.0 - time.Now().Sub(sshHosts.CreatedAt).Minutes())
+	status := sshHosts.Status
 	if expLink < 0 {
+		status = "expired"
+	}
+	binaries, err  := repo.GetFloxyBinaries(c.Param("fingerprint"))
+	if err != nil {
+		log.Println(err)
 		return c.String(503, "cannot access this page")
 	}
+
+	hostBinaries := make([]hostBinary,0)
+	for _, bin := range binaries {
+		hostBinaries = append(hostBinaries, hostBinary{
+			Fingerprint: bin.Fingerprint,
+			Kind:        bin.Kind,
+			Os:          bin.Os,
+			Platform:    bin.Platform,
+		})
+	}
+
 	return c.JSON(200, getHostResponse{
 		Fingerprint:    sshHosts.Fingerprint,
 		RemotePassword: sshHosts.RemotePassword,
 		LinkExpiration: expLink,
+		Status:         status,
+		Binaries:       hostBinaries,
 	})
 }
 
@@ -138,10 +175,24 @@ func burnApi(c echo.Context) error{
 	}
 
 	fingerPrint := uuid.New().String()
-	serverHost, err := sshserver.AllocateNewHost()
+
+	err := repo.AddNewFloxy(fingerPrint)
 	if err != nil{
 		log.Println(err)
 		return c.JSON(200, burnResponse{Status: "ssh_err"})
+	}
+
+	go schedulerBurn(request, fingerPrint)
+
+	return c.JSON(200, burnResponse{Status: "burning", Fingerprint: fingerPrint})
+}
+
+func schedulerBurn(request burnRequest, fingerPrint string){
+	serverHost, err := sshserver.AllocateNewHost()
+	if err != nil{
+		log.Println(err)
+		_ = repo.SetFailed(fingerPrint)
+		return
 	}
 
 	var remotePass *string
@@ -159,10 +210,26 @@ func burnApi(c echo.Context) error{
 
 	if err != nil{
 		log.Println(err)
-		return c.JSON(200, burnResponse{Status: "bin_err"})
+		_ = repo.SetFailed(fingerPrint)
+		return
 	}
 
-	err = repo.AddNewFloxy(repo.Floxy{
+	for _, floxyBin := range binaryRes.ChildBinary {
+		err = repo.AddFloxyBinary(repo.FloxyBinary{
+			Parent:      fingerPrint,
+			Fingerprint: floxyBin.Fingerprint,
+			Kind:        floxyBin.Kind,
+			Os:          floxyBin.Os,
+			Platform:    floxyBin.Platform,
+		})
+		if err != nil{
+			log.Println(err)
+			_ = repo.SetFailed(fingerPrint)
+			return
+		}
+	}
+
+	err = repo.UpdateFloxy(repo.Floxy{
 		PublicKey:      serverHost.PublicKey,
 		Fingerprint:    fingerPrint,
 		RemotePassword: remotePass,
@@ -170,9 +237,7 @@ func burnApi(c echo.Context) error{
 		Port:           serverHost.Port,
 	})
 	if err != nil{
-		log.Println(err)
-		return c.JSON(200, burnResponse{Status: "bin_err"})
+		_ = repo.SetFailed(fingerPrint)
 	}
-
-	return c.JSON(200, burnResponse{Status: "approved", Fingerprint: binaryRes.FingerPrint})
+	err = repo.SetActive(fingerPrint)
 }

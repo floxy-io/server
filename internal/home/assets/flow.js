@@ -14,7 +14,7 @@ function flow() {
     $("#formPage").hide();
     $("#burnPage").hide();
     $("#noLinkSharePage").hide();
-    $('#burning').hide();
+    $('#burningPage').hide();
     $('#sharePage').hide();
     if (window.location.pathname.includes('burn')) {
         $("#burnPage").show();
@@ -53,46 +53,6 @@ function toAboutpage() {
     $("#home").fadeOut("slow",function() {
         $("#aboutPage").fadeIn("slow");
     })
-}
-
-function activateForm(idx) {
-
-    const last2Form = "#formQ" + (idx - 2);
-    const lastForm = "#formQ" + (idx - 1);
-    const currForm = "#formQ" + idx;
-    const nextForm = "#formQ" + (idx + 1);
-    const next2Form = "#formQ" + (idx + 2);
-
-
-    if ($(currForm).hasClass( "inactive")){
-        if ($(lastForm).hasClass( "active")){
-            $("#formContainer").animate({
-                top: '-=15em'
-            }, 400);
-        }else {
-            $("#formContainer").animate({
-                top: '+=15em'
-            }, 400);
-        }
-
-
-        $(last2Form).addClass("invisible");
-
-        $(lastForm).removeClass("invisible");
-        $(lastForm).removeClass("active");
-        $(lastForm).addClass("inactive");
-
-        $(currForm).removeClass("inactive");
-        $(currForm).removeClass("invisible");
-        $(currForm).addClass("active");
-
-        $(nextForm).addClass("inactive");
-        $(nextForm).removeClass("invisible");
-        $(nextForm).removeClass("active");
-
-        $(next2Form).addClass("invisible");
-
-    }
 }
 
 const binaryExpOptions = [{text: '1 hour', value: 1}, {text: '1 day', value: 24}, {text: '10 days', value: 24 * 10}, {text: '1 month', value: 24 * 10 * 30}];
@@ -173,7 +133,7 @@ function burnSubmit(token) {
     $("#canvas").fadeTo( "slow" , 1)
     $("#formPage").fadeOut("slow",function() {
         startBurn()
-        $("#burning").fadeIn("slow",function() {
+        $("#burningPage").fadeIn("slow",function() {
             Http.open("POST", 'http://localhost:8080/api/floxy/burn');
             Http.setRequestHeader("Content-Type", "application/json");
             const data = JSON.stringify(
@@ -192,11 +152,9 @@ function burnSubmit(token) {
                 const res = Http.responseText;
                 if (Http.status === 200 && Http.readyState === 4) {
                     const resJson = JSON.parse(res);
-                    if (resJson.status === 'approved'){
+                    if (resJson.status === 'burning'){
                         window.history.pushState({}, 'Share floxy', `/share/${resJson.fingerprint}`);
-                        $("#burning").fadeOut("slow",function() {
-                            getFloxy(resJson.fingerprint)
-                        })
+                        getFloxy(resJson.fingerprint)
                     }else if (resJson.status === 'non_approve'){
                         stopBurn()
                         $("#burnInProcess").fadeOut("slow",function() {
@@ -223,30 +181,71 @@ function burnSubmit(token) {
 }
 
 function getFloxy(fingerprint) {
-    $("#canvas").fadeTo( "slow" , 0.5)
-    stopBurn();
-    $(".copyLink").attr("href", `http://localhost:8080/api/download/${fingerprint}/floxy`)
+    // $(".copyLink").attr("href", `http://localhost:8080/api/download/${fingerprint}/floxy`)
 
     Http.open("GET", `http://localhost:8080/api/floxy/${fingerprint}`);
-
     Http.send();
     Http.onreadystatechange = (e) => {
         const res = Http.responseText;
         if (Http.readyState === 4) {
-            if (Http.status === 200){
-                const resJson = JSON.parse(res);
-                if (resJson.remotePassword !== null && resJson.remotePassword !== ""){
+            if (!getFloxyResult(Http.status, res)){
+                iterateUntilResult(fingerprint)
+            }
+        }
+    }
+}
+
+function iterateUntilResult(fingerprint){
+    const loop = setInterval(function(){
+        Http.open("GET", `http://localhost:8080/api/floxy/${fingerprint}`);
+        Http.send();
+        Http.onreadystatechange = (e) => {
+            const res = Http.responseText;
+            if (Http.readyState === 4) {
+                if (getFloxyResult(Http.status, res)){
+                    clearInterval(loop)
+                }
+            }
+        }
+    }, 3000);
+}
+
+function getFloxyResult(status, res) {
+    if (status === 200) {
+        const resJson = JSON.parse(res);
+        if (resJson.status === 'active') {
+            $("#burningPage").fadeOut("slow",function() {
+                $("#canvas").fadeTo( "slow" , 0.5)
+                stopBurn();
+                if (resJson.remotePassword !== null && resJson.remotePassword !== "") {
                     $(".remoteCode").text(`remote>./floxyL -k=remote -p=${resJson.remotePassword} -h {{host:ip}}`)
                 }
                 $("#shareExpSecurity").text(`${resJson.linkExpiration} minute(s)`)
+                for (i = 0; i < resJson.binaries.length; i++) {
+                    const binary = resJson.binaries[i]
+                    $( "#downloadLink" ).append(`<p><a href='http://localhost:8080/api/download/${resJson.fingerPrint}/${binary.fingerPrint}/floxy'><code>${binary.kind}>./floxy -h {{host:ip}}</code>download</a> or share floxy ${binary.kind} binary (${binary.os} distro)</p>`);
+                    console.log(resJson.binaries[i])
+                }
                 $("#sharePage").fadeIn("slow");
-                // resJson.linkExpiration
-            }else {
-                $("#noLinkSharePage").fadeIn("slow");
-            }
-
+                return true
+            })
         }
+        if (resJson.status === 'expired') {
+            $("#canvas").fadeTo( "slow" , 0.5)
+            stopBurn();
+            $("#noLinkSharePage").fadeIn("slow");
+            return true
+        }
+        if (resJson.status === 'burning') {
+            return false
+        }
+    }else{
+        $("#burningPage").fadeOut("slow",function() {
+            $("#noLinkSharePage").fadeIn("slow");
+            return true
+        })
     }
+    return true
 }
 
 const getUrlParameter = function getUrlParameter(sParam) {

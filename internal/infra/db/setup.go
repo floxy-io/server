@@ -10,14 +10,26 @@ var db *sql.DB
 var sshPairTable = `
 CREATE TABLE IF NOT EXISTS floxy (
 	fingerprint TEXT PRIMARY KEY,
-	publicKey TEXT NOT NULL,
+	publicKey TEXT,
 	port      NUMBER,
 	createdAt DATE,
 	activated BOOLEAN,
 	expireAt  DATE,
-	remotePassword TEXT
+	remotePassword TEXT,
+	status TEXT NOT NULL
 );
 `
+
+var binaryTable = `
+CREATE TABLE IF NOT EXISTS floxy_binary (
+	fingerprint TEXT PRIMARY KEY,
+	parent      TEXT NOT NULL,
+	kind        TEXT NOT NULL,
+	os          TEXT NOT NULL,
+	platform    TEXT NOT NULL
+);
+`
+
 func Get()*sql.DB{
 	return db
 }
@@ -29,6 +41,10 @@ func Setup()error{
 		return err
 	}
 	_, err = db.Exec(sshPairTable)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(binaryTable)
 	if err != nil {
 		return err
 	}

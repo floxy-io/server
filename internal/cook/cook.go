@@ -76,12 +76,16 @@ func main() {
 		if RemotePassword != "" && *flagPassword != RemotePassword {
 			log.Fatal("password protected remote, please use flag -p with a correct password")
 		}
-		err = startRemoteProxy(remoteProxyConfig{
-			PrivateKey:  PrivateKey,
-			Fingerprint: FingerPrint,
-			SshHost:     SshHost,
-			ProxyHost:   finalProxyHost,
-		})
+		for {
+			err = startRemoteProxy(remoteProxyConfig{
+				PrivateKey:  PrivateKey,
+				Fingerprint: FingerPrint,
+				SshHost:     SshHost,
+				ProxyHost:   finalProxyHost,
+			})
+			log.Println("error on remote connection: ", err)
+			time.Sleep(1 * time.Second)
+		}
 	default:
 		log.Fatal("cannot find kind")
 	}

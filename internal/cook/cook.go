@@ -248,6 +248,7 @@ func handleLocal(hostListener net.Listener, listenerConn net.Conn, serverClient 
 	if err != nil {
 		log.Println(fmt.Sprintf("(%s) cannot call proxy server!", time.Now()))
 		hostListener.Close()
+		listenerConn.Close()
 		return
 	}
 

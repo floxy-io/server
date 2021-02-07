@@ -18,6 +18,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -35,8 +36,6 @@ func main() {
 	//externalDomain := flag.String("e", "", "external domain")
 
 	flag.Parse()
-
-	reader := bufio.NewReader(os.Stdin)
 
 	if FingerPrint == "" {
 		FingerPrint = os.Getenv("FLOXY_FINGERPRINT")
@@ -57,16 +56,7 @@ func main() {
 		}
 	}
 
-	if proxyHost == nil || *proxyHost == "" {
-		fmt.Print("-> specify port: ")
-		readPort, _ := reader.ReadString('\n')
-		proxyHost = &readPort
-	}
-	if len(strings.Split(*proxyHost, ":")) != 2 {
-		log.Fatal("You must specify host:port")
-	}
-	finalProxyHost := strings.ReplaceAll(*proxyHost, "\n", "")
-	finalProxyHost = strings.ReplaceAll(finalProxyHost, "\r", "")
+	finalProxyHost := generateProxyHost(proxyHost)
 
 	var err error
 
@@ -106,6 +96,33 @@ type remoteProxyConfig struct {
 	Fingerprint string
 	SshHost     string
 	ProxyHost   string
+}
+
+func generateProxyHost(input *string)string{
+	finalInput := ""
+	if input == nil || *input == "" {
+		fmt.Print("-> specify host:port or port (if localhost): ")
+		reader := bufio.NewReader(os.Stdin)
+		readPort, _ := reader.ReadString('\n')
+		finalInput = readPort
+		finalInput = strings.ReplaceAll(finalInput, "\n", "")
+		finalInput = strings.ReplaceAll(finalInput, "\r", "")
+	}else{
+		finalInput = *input
+	}
+	finalInputSpl := strings.Split(finalInput, ":")
+	switch len(finalInputSpl) {
+	case 1:
+		if _, err := strconv.Atoi(finalInputSpl[0]); err != nil {
+			log.Fatal("You must specify host:port or at least a correct port number")
+		}
+		finalInput = fmt.Sprintf("localhost:%s",finalInputSpl[0])
+	case 2:
+		break
+	default:
+		log.Fatal("You must specify host:port or at least a correct port number")
+	}
+	return finalInput
 }
 
 func startRemoteProxy(config remoteProxyConfig) error {

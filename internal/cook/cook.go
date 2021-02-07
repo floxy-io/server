@@ -247,6 +247,8 @@ func handleLocal(listenerConn net.Conn, serverClient *ssh.Client, port string){
 	serverConn, err := serverClient.Dial("tcp", fmt.Sprintf("localhost:%s", port))
 	if err != nil {
 		log.Println(fmt.Sprintf("(%s) cannot call proxy server!", time.Now()))
+		// force EOF above
+		listenerConn.Close()
 		return
 	}
 

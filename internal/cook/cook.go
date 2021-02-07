@@ -159,7 +159,7 @@ func startRemoteProxy(config remoteProxyConfig) error {
 	// listening to server reverse proxy
 	l, err := serverClient.Listen("tcp", fmt.Sprintf("localhost:%s", serverPort))
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("server error: %s", err)
 	}
 
 	log.Println("FloxyR success connect to server!")
@@ -167,7 +167,7 @@ func startRemoteProxy(config remoteProxyConfig) error {
 	for {
 		serverConn, err := l.Accept()
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("server cannot accept conn: %s", err)
 		}
 
 		go handleRemoteConn(serverConn, config.ProxyHost)

@@ -247,13 +247,18 @@ func GetAll() ([]Floxy, error){
 	for row.Next() {
 		var fingerprint string
 		var publicKey string
-		var activated bool
+		var activated *bool
 		var createdAt time.Time
 		var expireAt  time.Time
 		var port int
 		err = row.Scan(&fingerprint, &publicKey, &port, &activated, &createdAt, &expireAt)
 		if err != nil {
 			return sshAll, err
+		}
+
+		isActive := false
+		if activated != nil {
+			isActive = *activated
 		}
 
 		publicDec, err := base64.StdEncoding.DecodeString(publicKey)
@@ -266,7 +271,7 @@ func GetAll() ([]Floxy, error){
 			RemotePassword: nil,
 			Expiration:     expireAt,
 			CreatedAt:      createdAt,
-			Activated:      activated,
+			Activated:      isActive,
 			Port:           port,
 		})
 	}

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/basic.css">
     <link rel="stylesheet" href="/fire.css">
     <link rel="icon" href="/favicon.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
     <link rel="preconnect" href="https://fonts.gstatic.com">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100;0,200;1,100&display=swap" rel="stylesheet">
@@ -15,6 +16,7 @@
     <script src="https://www.google.com/recaptcha/api.js?render=6LeUMCMaAAAAABmP3FZtGTOFcGDgpGR0Z0pI7j2R&data-theme=dark"></script>
     <script src="/flow.js"></script>
 
+
 </head>
 <body>
     <canvas id='canvas'></canvas>
@@ -22,47 +24,139 @@
     <div id="home" style="display: flex;width: 100%;height: 100%;justify-content: center;align-items: center;padding: 15px;">
         <div>
             <h1>Floxy</h1>
-            <h3 style="margin-top: -1em;">High security<code>tunneling</code>connection</h3>
-            <h4 style="text-align: center"><strong>Free</strong> and simple service that allows <code>private</code> end-to-end <code>secure connection over the internet</code></h4>
-            <h3 style="text-align: center"><a onclick="toAboutpage()">more about</a> | <a onclick="toBurnpage()">Let's start</a></h3>
+            <h3 style="margin-top: -1em;">Free and no installation<code>tunneling</code>connection</h3>
+            <h3 style="margin-top: -0.5em;">use your own terminal ssh and floxy service</h3>
+            <h3 style="margin-top: -0.5em;">to connect everything</h3>
+            <h4 style="text-align: center">Choose between:</h4>
+            <h3 style="text-align: center"><a onclick="submit('c2s')">client-2-server</a> or <a onclick="submit('w2s')">web-2-server</a></h3>
         </div>
     </div>
 
-    <div id="burnPage">
-        <div style="padding: 15px;text-align: center;">
-            <h2>Great, let's do it!</h2>
+    <div id="c2sPage" style="margin: 2em">
+
+        <div>
+            <h3 style="text-align: center">Use <code>Floxy</code> to connect 2 devices peer 2 peer:</h3>
         </div>
-        <div style="display: flex;padding: 15px;text-align: center;">
-            <p>Floxy is based on ssh tunneling by creating an unique binary and
-                async certificate to connect a local and remote PC. <code>No login required</code>, only 3 questions
-                to burn the binary:
-            </p>
+
+        <div class="window">
+            <div class="bar">
+                <div class="btn">
+                </div>
+                <div style="text-align: center">server terminal</div>
+            </div>
+            <div class="windowBody">
+                <div class="comment"># select the target server port, example port 8080</div>
+                <div class="prompt">$ <span class="command port8080Example">PORT=8080</span><a class="copyCmd" onclick="copyText('.port8080Example')"> (copy)</a></div>
+                <div class="comment"># run this command to connect server</div>
+                <div class="comment"># use the password bellow to authenticate on floxy</div>
+                <div class="prompt">$ <span class="command serverPlaceholder copy_83763"></span><a class="copyCmd" onclick="copyText('.copy_83763')"> (copy)</a></div>
+                <div class="prompt">password: <span class="command passwordPlaceholder"></span><a class="copyCmd" onclick="copyText('#passwordPlaceholder')"> (copy)</a></div>
+            </div>
         </div>
-        <div style="display: flex;padding: 15px; flex-wrap: wrap; justify-content: center;">
-            <div style="text-align: center; padding: 1em;">
-                <h2><a onclick="goToFormPage()">start!</a></h2>
+
+        <div class="window">
+            <div class="bar">
+                <div class="btn">
+                </div>
+                <div style="text-align: center">client terminal</div>
+            </div>
+            <div class="windowBody">
+                <div class="comment"># select the target server port, example port 1323</div>
+                <div class="prompt">$ <span class="command port1323Example">PORT=1323</span><a class="copyCmd" onclick="copyText('.port1323Example')"> (copy)</a></div>
+                <div class="comment"># run the command generated in the server side</div>
+                <div class="comment"># use the password bellow to authenticate on floxy</div>
+                <div class="prompt">$ <span class="command" id="localPlaceholder"></span><a class="copyCmd" onclick="copyText('#localPlaceholder')"> (copy)</a></div>
+                <div class="prompt">password: <span class="command passwordPlaceholder" id="passwordPlaceholder"></span><a class="copyCmd" onclick="copyText('#passwordPlaceholder')"> (copy)</a></div>
             </div>
         </div>
     </div>
 
-    <div id="formPage" style="display: flex;width: 100%;height: 100%;justify-content: center;align-items: center;padding: 15px;flex-direction: column;flex-wrap: wrap;">
-        <div style="text-align: center; padding: 1em;">
-            <h3 style="margin-bottom: -0.5em">binary expiration: </h3>
-            <span><h3 class="noselect"><a id="binaryExpSelector" onclick="binaryExpSelector()">select</a></h3></span>
-        </div>
-        <div style="text-align: center; padding: 1em;">
-            <h3 style="margin-bottom: -0.5em">local distro: </h3>
-            <span><h3 class="noselect"><a id="localDistroSelector" onclick="localDistroSelector()">select</a></h3></span>
-        </div>
-        <div style="text-align: center; padding: 1em;">
-            <h3 style="margin-bottom: -0.5em">remote distro: </h3>
-            <span><h3 class="noselect"><a id="remoteDistroSelector" onclick="remoteDistroSelector()">select</a></h3></span>
-        </div>
-        <div style="text-align: center; padding: 1em;">
-            <span><h3 id="burnButton" class="noselect disabled"><a onclick="submit()">BURN</a></h3></span>
-            <div id="tmpRec"></div>
+    <div id="w2sPage" style="margin: 2em">
+
+        <div>
+            <h3 style="text-align: center">Use <code>Floxy</code> to connect 1 device over the internet:</h3>
         </div>
 
+        <div class="window">
+            <div class="bar">
+                <div class="btn">
+                </div>
+                <div style="text-align: center">server terminal</div>
+            </div>
+            <div class="windowBody">
+                <div class="comment"># select the target server port, example port 8080</div>
+                <div class="prompt">$ <span class="command">PORT=8080</span><a class="copyCmd" onclick="copyText('.port8080Example')"> (copy)</a></div>
+                <div class="comment"># run this command to connect server</div>
+                <div class="comment"># use the password bellow to authenticate on floxy</div>
+                <div class="prompt">$ <span class="command serverPlaceholder copy_90"></span><a class="copyCmd" onclick="copyText('.copy_90')"> (copy)</a></div>
+                <div class="prompt">password: <span class="command passwordPlaceholder"></span><a class="copyCmd" onclick="copyText('#passwordPlaceholder')"> (copy)</a></div>
+            </div>
+        </div>
+
+        <div class="window">
+            <div class="bar">
+                <div class="btn">
+                </div>
+                <div style="text-align: center">client terminal</div>
+            </div>
+            <div class="windowBody">
+                <div class="comment"># make a curl test:</div>
+                <div class="prompt">$ <span class="command domainCopy">curl <span class="domainPlaceholder"></span></span><a class="copyCmd" onclick="copyText('.domainCopy')"> (copy)</a></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="clientServer" style="margin: 2em">
+
+        <div>
+            <h3 style="text-align: center">Use <code>Floxy</code> to connect 2 devices peer 2 peer:</h3>
+        </div>
+
+        <div class="window">
+            <div class="bar">
+                <div class="btn">
+                </div>
+                <div style="text-align: center">server terminal</div>
+            </div>
+            <div class="windowBody">
+                <div class="comment"># run this command to generate a floxy spot</div>
+                <div class="prompt">$ <span class="command">curl curl --location --request POST 'https://floxy.io/api/s2s'</span></div>
+                <div class="prompt"><span class="command">--header 'Content-Type: application/json'</span></div>
+                <div class="comment"></div>
+                <div class="comment">{</div>
+                <div class="comment" style="margin-left: 20px">"server_command": "ssh -N -R 52443:localhost:$PORT ssh.floxy.io",</div>
+                <div class="comment" style="margin-left: 20px">"client_command": "ssh -N -L localhost:$PORT:52443 ssh.floxy.io",</div>
+                <div class="comment" style="margin-left: 20px">"password": "hcbdyekkc84jcnc809&5$bndjjk",</div>
+                <div class="comment" style="margin-bottom: 15px">}</div>
+                <div class="comment"># use the server command bellow:</div>
+                <div class="prompt">$ <span class="command">ssh -N -R 52443:localhost:$PORT ssh.floxy.io</span></div>
+            </div>
+        </div>
+
+        <div class="window">
+            <div class="bar">
+                <div class="btn">
+                </div>
+                <div style="text-align: center">client terminal</div>
+            </div>
+            <div class="windowBody">
+                <div class="comment"># run the command generated in the server side</div>
+                <div class="prompt">$ <span class="command">ssh -N -L localhost:$PORT:52443 ssh.floxy.io</span></div>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="noLinkSharePage">
+        <div style="padding: 15px;text-align: center;">
+            <h2>ops, sorry!</h2>
+        </div>
+        <div style="display: block;padding: 25px;text-align: center; margin-top: -4em">
+            <h3>
+                there isn't any link here!
+            </h3>
+            <a onclick="goToHome()">back to homepage</a>
+        </div>
     </div>
 
 
@@ -133,44 +227,13 @@
 
     <div id="burningPage" style="display: flex;width: 100%;height: 100%;justify-content: center;align-items: center;padding: 15px;">
         <div id="burnInProcess" style="display: block">
-            <h3>Wait! We are burning a new Floxy Binary</h3>
+            <h3>Wait! We are generating a key</h3>
         </div>
         <div id="burnNotApprove" style="display: none">
             <h3>We couldn't approve this captcha</h3>
         </div>
         <div id="binGenerationError" style="display: none">
             <h3>Internal error generating bin, try again later. =(</h3>
-        </div>
-    </div>
-
-    <div id="sharePage">
-        <div style="padding: 15px;text-align: center;">
-            <h2>download & share!</h2>
-        </div>
-        <div style="display: block;padding: 25px;">
-            <span id="downloadLink">
-            </span>
-            <p style="text-align: center">
-                for security reason, the download link will expire in
-            </p>
-            <p style="text-align: center" id="shareExpSecurity"></p>
-            <p style="text-align: center">
-                For FAQ or bug issues, access our <a href="https://github.com/danielsussa/floxy-docs">github page</a>
-            </p>
-            <p style="text-align: center">
-                thanks for using floxy!
-            </p>
-        </div>
-    </div>
-
-    <div id="noLinkSharePage">
-        <div style="padding: 15px;text-align: center;">
-            <h2>ops, sorry!</h2>
-        </div>
-        <div style="display: block;padding: 25px;text-align: center">
-            <p>
-                there isn't any link here!
-            </p>
         </div>
     </div>
 

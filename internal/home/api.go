@@ -3,242 +3,183 @@ package home
 import (
 	"context"
 	"fmt"
-	"github.com/danielsussa/floxy/internal/infra/compiler"
+	"github.com/danielsussa/floxy/internal/env"
 	"github.com/danielsussa/floxy/internal/infra/recaptcha"
-	"github.com/danielsussa/floxy/internal/infra/repo"
 	"github.com/danielsussa/floxy/internal/sshserver"
-	"github.com/google/uuid"
 	"github.com/labstack/echo"
 	"log"
-	"strings"
-	"time"
+	"net/http"
 )
 
 var (
 	e *echo.Echo
 )
 
-func Shutdown(ctx context.Context)error{
+func Shutdown(ctx context.Context) error {
 	return e.Shutdown(ctx)
 }
 
 var AssetsPath string
 
-func Start(){
-	if AssetsPath == ""{
+func Start() {
+	if AssetsPath == "" {
 		AssetsPath = "internal/home/assets"
 	}
 	log.Println("using path: ", AssetsPath)
-	go func(){
+	go func() {
 		e = echo.New()
 		e.Static("/", AssetsPath)
-		e.Static("/burnApi", AssetsPath)
-		e.Static("/burn", AssetsPath)
-		e.Static("/about", AssetsPath)
-		e.Static("/form", AssetsPath)
+		e.Static("/c2s", AssetsPath)
 		e.Static("/share/:fingerprint", AssetsPath)
-		e.GET("/api/download/:fingerprint/:binary/:kind", downloadBinary)
-		e.GET("/api/floxy/:fingerprint", getFloxy)
-		e.GET("/api/floxy/:fingerprint/status", getFloxy)
-		e.GET("/internal/hosts", getAllHosts)
-		e.GET("/internal/exclude", excludeNotActive)
-		e.POST("/api/floxy/burn", burnApi)
+		e.POST("/api/c2s", remoteLocalProxy)
+		e.GET("/api/users/:user", getUserProxy)
+		e.POST("/api/w2s", webRemoteProxy)
 		e.Logger.Fatal(e.Start(":8080"))
 	}()
 }
 
-func downloadBinary(c echo.Context) error{
-	file := fmt.Sprintf("internal/home/cooked_bin/%s/%s/floxy", c.Param("fingerprint"),c.Param("binary"))
-	log.Println(file)
-	return c.File(file)
+type remoteLocalProxyRequest struct {
+	Captcha    string    `json:"captcha"`
+	PublicKeys *[]string `json:"public_keys"`
 }
 
-type burnResponse struct {
-	Status      string `json:"status"`
-	Fingerprint string `json:"fingerprint"`
+type remoteWebProxyResponse struct {
+	Kind          string  `json:"kind"`
+	Id            string  `json:"id"`
+	Password      *string `json:"password,omitempty"`
+	ServerCommand string  `json:"server_command"`
+	Domain        string  `json:"domain"`
 }
 
-func getAllHosts(c echo.Context)error{
-	sshHosts, err := repo.GetAll()
-	if err != nil {
-		log.Println(err)
-		return c.String(400, err.Error())
-	}
-	return c.JSON(200, sshHosts)
-}
+func newRemoteWebProxyResponse(user *sshserver.ProxyUserMap) remoteWebProxyResponse {
+	sshDns := env.GetOrDefault(env.ServerSshDns, "localhost")
 
-func excludeNotActive(c echo.Context)error{
-	sshHosts, err := repo.GetAll()
-	if err != nil {
-		log.Println(err)
-		return c.String(400, err.Error())
+	var sshPortFmt string
+	sshPort := env.GetOrDefault(env.ServerSshPort, "2222")
+	if sshPort != "22" {
+		sshPortFmt = fmt.Sprintf(" -p %s", env.GetOrDefault(env.ServerSshPort, "2222"))
 	}
 
-	for _, floxy := range sshHosts {
-		if !floxy.IsActive() {
-			err = repo.Remove(floxy.Fingerprint)
-			if err != nil {
-				log.Println(err)
-				return c.String(400, err.Error())
-			}
-		}
-		if floxy.ExpiredLink() {
-			// remove download file
-			_ = compiler.RemoveLink(floxy.Fingerprint)
-		}
+	serverCmd := fmt.Sprintf("ssh -N -R %d:localhost:$PORT %s%s",
+		user.Port, sshDns, sshPortFmt)
+
+	serverDns := env.GetOrDefault(env.ServerBaseDns, "localhost")
+
+	return remoteWebProxyResponse{
+		Id:            user.Id,
+		Password:      user.Password,
+		ServerCommand: serverCmd,
+		Domain:        fmt.Sprintf("https://%s.%s", *user.SubDns, serverDns),
+		Kind:          "w2s",
 	}
-	return c.JSON(200, sshHosts)
 }
 
-type getHostResponse struct {
-	Fingerprint    string `json:"fingerPrint"`
-	RemotePassword *string `json:"remotePassword"`
-	LinkExpiration int     `json:"linkExpiration"`
-	Status         string  `json:"status"`
-	Binaries       []hostBinary `json:"binaries"`
+type remoteLocalProxyResponse struct {
+	Id            string  `json:"id"`
+	Password      *string `json:"password,omitempty"`
+	LocalCommand  string  `json:"local_command,omitempty"`
+	ServerCommand string  `json:"server_command"`
+	Kind          string  `json:"kind"`
 }
 
-type hostBinary struct {
-	Fingerprint string `json:"fingerPrint"`
-	Kind        string `json:"kind"`
-	Os          string `json:"os"`
-	Platform    string `json:"platform"`
+func newRemoteLocalProxyResponse(user *sshserver.ProxyUserMap) remoteLocalProxyResponse {
+	sshDns := env.GetOrDefault(env.ServerSshDns, "localhost")
 
-}
-
-func getFloxy(c echo.Context)error{
-	sshHosts, err := repo.GetByFingerprint(c.Param("fingerprint"))
-	if err != nil {
-		log.Println(err)
-		return c.String(503, "cannot access this page")
+	var sshPortFmt string
+	sshPort := env.GetOrDefault(env.ServerSshPort, "2222")
+	if sshPort != "22" {
+		sshPortFmt = fmt.Sprintf(" -p %s", env.GetOrDefault(env.ServerSshPort, "2222"))
 	}
 
-	if sshHosts.Status == "burning" {
-		return c.JSON(200, getHostResponse{
-			Status:         sshHosts.Status,
+	localCmd := fmt.Sprintf("ssh -N -L $PORT:localhost:%d %s%s", user.Port, sshDns, sshPortFmt)
+	serverCmd := fmt.Sprintf("ssh -N -R %d:localhost:$PORT %s%s",
+		user.Port, sshDns, sshPortFmt)
+
+	return remoteLocalProxyResponse{
+		Id:            user.Id,
+		Password:      user.Password,
+		LocalCommand:  localCmd,
+		ServerCommand: serverCmd,
+		Kind:          "c2s",
+	}
+}
+
+func webRemoteProxy(c echo.Context) error {
+	var req remoteLocalProxyRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"error": err,
 		})
 	}
 
-	expLink := int(10.0 - time.Now().Sub(sshHosts.CreatedAt).Minutes())
-	status := sshHosts.Status
-	if expLink < 0 {
-		status = "expired"
+	res, err := recaptcha.Get(req.Captcha)
+	if err != nil || !res.Success {
+		return c.JSON(403, map[string]interface{}{
+			"error": "captcha not approved",
+		})
 	}
-	binaries, err  := repo.GetFloxyBinaries(c.Param("fingerprint"))
+	if res.Score < 0.5 {
+		return c.JSON(403, map[string]interface{}{
+			"error": "low score",
+		})
+	}
+
+	user, err := sshserver.AddNewUser(sshserver.AddNewUserRequest{
+		PublicKeys: req.PublicKeys,
+		GenDomain:  true,
+	})
 	if err != nil {
-		log.Println(err)
-		return c.String(503, "cannot access this page")
-	}
-
-	hostBinaries := make([]hostBinary,0)
-	for _, bin := range binaries {
-		hostBinaries = append(hostBinaries, hostBinary{
-			Fingerprint: bin.Fingerprint,
-			Kind:        bin.Kind,
-			Os:          bin.Os,
-			Platform:    bin.Platform,
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"error": err,
 		})
 	}
 
-	return c.JSON(200, getHostResponse{
-		Fingerprint:    sshHosts.Fingerprint,
-		RemotePassword: sshHosts.RemotePassword,
-		LinkExpiration: expLink,
-		Status:         status,
-		Binaries:       hostBinaries,
-	})
+	return c.JSON(http.StatusCreated, newRemoteWebProxyResponse(user))
 }
 
-type burnRequest struct {
-	Token          string
-	Expiration     int
-	RemotePassword bool
-	Distro         []compiler.DistroRequest
-}
+func getUserProxy(c echo.Context) error {
+	userId := c.Param("user")
 
-func burnApi(c echo.Context) error{
-	var request burnRequest
-	if err := c.Bind(&request); err != nil {
-		return c.JSON(200, burnResponse{Status: "ssh_err"})
-	}
-
-	log.Println("receive request: ", request)
-
-	// recaptcha
-	{
-		res, err := recaptcha.Get(request.Token)
-		if err != nil || !res.Success{
-			return c.JSON(200, burnResponse{Status: "non_approve"})
-		}
-		if res.Score < 0.5 {
-			return c.JSON(200, burnResponse{Status: "non_approve"})
-		}
-	}
-
-	fingerPrint := uuid.New().String()
-
-	err := repo.AddNewFloxy(fingerPrint)
-	if err != nil{
-		log.Println(err)
-		return c.JSON(200, burnResponse{Status: "ssh_err"})
-	}
-
-	go schedulerBurn(request, fingerPrint)
-
-	return c.JSON(200, burnResponse{Status: "burning", Fingerprint: fingerPrint})
-}
-
-func schedulerBurn(request burnRequest, fingerPrint string){
-	serverHost, err := sshserver.AllocateNewHost()
-	if err != nil{
-		log.Println(err)
-		_ = repo.SetFailed(fingerPrint)
-		return
-	}
-
-	var remotePass *string
-	if request.RemotePassword {
-		k := strings.Split(uuid.New().String(), "-")[0]
-		remotePass = &k
-	}
-
-	binaryRes, err := compiler.Make(compiler.MakeRequest{
-		PKey:           serverHost.PrivateKey,
-		FingerPrint:    fingerPrint,
-		RemotePassword: remotePass,
-		Distro:         request.Distro,
-	})
-
-	if err != nil{
-		log.Println(err)
-		_ = repo.SetFailed(fingerPrint)
-		return
-	}
-
-	for _, floxyBin := range binaryRes.ChildBinary {
-		err = repo.AddFloxyBinary(repo.FloxyBinary{
-			Parent:      fingerPrint,
-			Fingerprint: floxyBin.Fingerprint,
-			Kind:        floxyBin.Kind,
-			Os:          floxyBin.Os,
-			Platform:    floxyBin.Platform,
+	user, err := sshserver.GetUserById(userId)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"error": "user not found",
 		})
-		if err != nil{
-			log.Println(err)
-			_ = repo.SetFailed(fingerPrint)
-			return
-		}
+	}
+	if user.SubDns != nil {
+		return c.JSON(http.StatusOK, newRemoteWebProxyResponse(user))
+	}
+	return c.JSON(http.StatusOK, newRemoteLocalProxyResponse(user))
+}
+
+func remoteLocalProxy(c echo.Context) error {
+	var req remoteLocalProxyRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"error": err,
+		})
 	}
 
-	err = repo.UpdateFloxy(repo.Floxy{
-		PublicKey:      serverHost.PublicKey,
-		Fingerprint:    fingerPrint,
-		RemotePassword: remotePass,
-		Expiration:     time.Now().Add(time.Hour * time.Duration(request.Expiration)),
-		Port:           serverHost.Port,
-	})
-	if err != nil{
-		_ = repo.SetFailed(fingerPrint)
+	res, err := recaptcha.Get(req.Captcha)
+	if err != nil || !res.Success {
+		return c.JSON(403, map[string]interface{}{
+			"error": "captcha not approved",
+		})
 	}
-	err = repo.SetActive(fingerPrint)
+	if res.Score < 0.5 {
+		return c.JSON(403, map[string]interface{}{
+			"error": "low score",
+		})
+	}
+
+	user, err := sshserver.AddNewUser(sshserver.AddNewUserRequest{
+		PublicKeys: req.PublicKeys,
+	})
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"error": err,
+		})
+	}
+
+	return c.JSON(http.StatusCreated, newRemoteLocalProxyResponse(user))
 }

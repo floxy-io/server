@@ -1,54 +1,136 @@
 package httpserver
 
 import (
-	"crypto/tls"
 	"fmt"
+	"github.com/danielsussa/floxy/internal/env"
+	"github.com/danielsussa/floxy/internal/sshserver"
+	"io"
 	"log"
 	"net"
+	"strings"
 )
 
 var listener net.Listener
 
-func Shutdown()error {
+func Shutdown() error {
 	return listener.Close()
 }
 
-func Start()chan error{
-	chErr := make(chan error)
+func Start() chan bool {
+	chStart := make(chan bool)
+	baseDns := env.GetOrDefault(env.ServerBaseDns, "localhost")
 	go func() {
-		var err error
-		cert, err := tls.LoadX509KeyPair( "/etc/letsencrypt/live/floxy.io/fullchain.pem","/etc/letsencrypt/live/floxy.io/privkey.pem" )
+		listener, err := net.Listen("tcp", "localhost:8081")
 		if err != nil {
-			return
+			panic(err)
 		}
-		tlsConfig := &tls.Config{
-			InsecureSkipVerify: true,
-			Certificates: []tls.Certificate{cert},
-		}
-
-		listener, err = tls.Listen("tcp", "localhost:8443", tlsConfig)
-		if err != nil {
-			chErr <- err
-		}
-		log.Println("start listening at port 8443")
+		chStart <- true
+		log.Println("start listening at port 8081")
 		for {
-			conn, err := listener.Accept()
+			serverConn, err := listener.Accept()
 			if err != nil {
-				fmt.Println("conn err: ", conn)
+				fmt.Println("conn err: ", err)
 				continue
 			}
-			tlsConn := conn.(*tls.Conn)
-
-			fmt.Println("remote conn", conn.RemoteAddr().String())
-			fmt.Println("local conn", conn.LocalAddr().String())
-
-			fmt.Println(tlsConn.ConnectionState())
-			for _, c := range tlsConn.ConnectionState().PeerCertificates {
-				fmt.Println(c)
-			}
-
-			conn.Close()
+			go handleCall(serverConn, baseDns)
 		}
 	}()
-	return chErr
+	return chStart
+}
+
+func handleCall(serverConn net.Conn, baseDns string) error {
+	defer serverConn.Close()
+
+	info, reader, bRemain := extractHttpInfo(serverConn)
+
+	dns := strings.ReplaceAll(strings.Split(info.Host(), baseDns)[0], ".", "")
+
+	user, err := sshserver.GetUserByDomain(dns)
+	if err != nil {
+		return err
+	}
+
+	clientConn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", user.Port))
+	if err != nil {
+		return err
+	}
+	defer clientConn.Close()
+
+	_, err = clientConn.Write(bRemain)
+	if err != nil {
+		return err
+	}
+
+	chDone := make(chan bool)
+	// Start remote -> local data transfer
+	go func() {
+		_, err := io.Copy(clientConn, reader)
+		if err != nil {
+			log.Println(fmt.Sprintf("error while copy remote->local: %s", err))
+		}
+		chDone <- true
+	}()
+
+	// Start local -> remote data transfer
+	go func() {
+		_, err := io.Copy(serverConn, clientConn)
+		if err != nil {
+			log.Println(fmt.Sprintf("error while copy local->remote: %s", err))
+		}
+		chDone <- true
+	}()
+
+	<-chDone
+	return nil
+}
+
+//func handleCall(serverConn net.Conn, baseDns string) error {
+//	defer serverConn.Close()
+//
+//	info := extractHttpInfo(serverConn)
+//
+//	dns := strings.ReplaceAll(strings.Split(info.Host(), baseDns)[0], ".", "")
+//
+//	user, err := sshserver.GetUserByDomain(dns)
+//	if err != nil {
+//		return err
+//	}
+//
+//	clientConn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", user.Port))
+//	if err != nil {
+//		return err
+//	}
+//
+//	_, err = fmt.Fprint(clientConn, info.Buffer())
+//	if err != nil {
+//		return err
+//	}
+//
+//	handleClient(clientConn, serverConn)
+//	return nil
+//}
+
+func handleClient(client, remote net.Conn) {
+	defer client.Close()
+	chDone := make(chan bool)
+
+	// Start remote -> local data transfer
+	go func() {
+		_, err := io.Copy(client, remote)
+		if err != nil {
+			log.Println(fmt.Sprintf("error while copy remote->local: %s", err))
+		}
+		chDone <- true
+	}()
+
+	// Start local -> remote data transfer
+	go func() {
+		_, err := io.Copy(remote, client)
+		if err != nil {
+			log.Println(fmt.Sprintf("error while copy local->remote: %s", err))
+		}
+		chDone <- true
+	}()
+
+	<-chDone
 }

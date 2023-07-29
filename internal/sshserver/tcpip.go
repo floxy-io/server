@@ -1,6 +1,5 @@
 package sshserver
 
-
 import (
 	"github.com/gliderlabs/ssh"
 	"io"
@@ -198,4 +197,3 @@ func (h *forwardedTCPHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server,
 		return false, nil
 	}
 }
-

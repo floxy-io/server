@@ -101,7 +101,7 @@ h1, h2, h3, h4, h5, h6 {
 h1 {
     color: #333;
     text-align: center;
-    font-size: 12em;
+    font-size: 8em;
     font-weight: 100;
     line-height: 1;
     text-shadow: white 0 -1px 0;
@@ -115,11 +115,11 @@ h2 {
     text-shadow: white 0 -1px 0;
 }
 h3 {
-    font-size: 5em;
+    font-size: 3em;
     text-align: center;
 }
 h4 {
-    font-size: 3em;
+    font-size: 2em;
 }
 h5 {
     font-size: 140%;
@@ -154,40 +154,11 @@ hr {
     max-width: 100%;
     word-break: break-word;
 }
-*:not(pre) > code a {
-    color: #c99cef;
-}
-pre {
-    color: #839496;
-    display: block;
-    width: 100%;
-    padding: 1em;
-    margin: 1em 0 2em 0;
-    border-radius: 3px;
-    font-size: 12pt;
-    font-family: 'Source Code Pro', Consolas, 'Andale Mono WT', 'Andale Mono', 'Lucida Console', 'Lucida Sans Typewriter', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Liberation Mono', 'Nimbus Mono L', Monaco, 'Courier New', Courier, monospace;
-    word-break: break-word;
-    white-space: pre-wrap;
-    font-kerning: auto;
-    background: #002b36;
-    border: 1px solid rgba(0,0,0,.05);
-    box-shadow: inset rgba(0,0,0,.075) 0 -3px 10px,
-    inset rgba(255,255,255,.15) 0 1px 0,
-    rgba(0,0,0,.3) 0 1px .5px,
-    rgba(0,0,0,.15) 0 3px 5px;
-}
 li {
     font-size: 12pt;
     padding: .25em 0;
 }
-p {
-    margin: 0;
-    font-weight: 400;
-    font-size: 3em;
-}
-* + p {
-    margin-top: .5em;
-}
+
 input:not([type=checkbox]):not([type=radio]),
 textarea {
     width: 100%;
@@ -444,16 +415,7 @@ button, input[type="submit"], input[type="reset"] {
     border: none;
     box-shadow: #222 0 1px 0;
 }
-[data-theme=dark] pre {
-    color: #333;
-    background: royalblue;
-    font-weight: 400;
-    border: 1px solid rgba(0,0,0,.05);
-    box-shadow: inset rgba(0,0,0,.075) 0 -3px 10px,
-    inset rgba(255,255,255,.15) 0 1px 0,
-    rgba(0,0,0,.3) 0 1px .5px,
-    rgba(0,0,0,.15) 0 3px 5px;
-}
+
 [data-theme=dark] blockquote p {
     color: #eee;
 }
@@ -482,6 +444,87 @@ button, input[type="submit"], input[type="reset"] {
                                   supported by Chrome, Edge, Opera and Firefox */
 }
 
+p {
+    font-size: 1.2em;
+}
+
 .disabled{
     opacity: 0.3;
+}
+
+.window {
+    margin: 0 auto 2rem;
+    box-shadow: 0 0.25rem 0.5rem #12181e;
+    border-radius: 0 0 0.1rem 0.1rem;
+}
+
+.bar {
+    background: #191919;
+    height: 36px;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.btn::after {
+    background: #32c146;
+    margin-left: 20px;
+}
+
+.btn {
+    background: #f6b73e;
+    position: relative;
+    margin-left: 38px;
+    top: 12px;
+}
+
+.btn::before {
+    background: #f55551;
+    margin-left: -20px;
+}
+
+.btn::before, .btn::after {
+    content: " ";
+    position: absolute;
+}
+.btn::before, .btn::after, .btn {
+    width: 12px;
+    height: 12px;
+    border-radius: 100%;
+    display: block;
+}
+
+.window {
+    opacity: 0.9;
+}
+
+.windowBody {
+    font-size: 16px;
+    word-wrap: break-word;
+    font-family: 'Roboto Mono', monospace;
+    background: #232323;
+    padding: 18px;
+}
+
+pre {
+    display: block;
+    font-family: monospace;
+    white-space: pre;
+    margin: 1em 0px;
+}
+
+.windowBody pre {
+    margin: 0;
+}
+
+.comment {
+    opacity: 0.5;
+}
+
+.command {
+    color: #32c146;
+}
+
+.copyCmd {
+    opacity: 0.5;
+    color: #91a8ff;
+    cursor: pointer;
 }

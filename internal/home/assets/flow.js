@@ -9,6 +9,9 @@ window.onpopstate = function(event) {
 };
 
 function flow() {
+    $("#clientServer").hide();
+    $("#c2sPage").hide();
+    $("#w2sPage").hide();
     $("#home").hide();
     $("#aboutPage").hide();
     $("#formPage").hide();
@@ -16,8 +19,8 @@ function flow() {
     $("#noLinkSharePage").hide();
     $('#burningPage').hide();
     $('#sharePage').hide();
-    if (window.location.pathname.includes('burn')) {
-        $("#burnPage").show();
+    if (window.location.pathname.includes('c2s')) {
+        $("#clientServer").show();
     }else if (window.location.pathname.includes('share')) {
         const fingerprint = window.location.pathname.split('share/')[1].split('/')[0]
         getFloxy(fingerprint)
@@ -31,6 +34,12 @@ function flow() {
     }
 }
 
+function clientOptServer() {
+    $("#home_p1").fadeOut("slow",function() {
+
+    })
+}
+
 function goToFormPage() {
     $("#canvas").fadeTo( "slow" , 0.5)
     window.history.pushState({}, 'Form', '/form');
@@ -39,11 +48,11 @@ function goToFormPage() {
     })
 }
 
-function toBurnpage() {
+function clientServer() {
     $("#canvas").fadeTo( "slow" , 1)
-    window.history.pushState({}, 'Burn floxy', '/burn');
+    window.history.pushState({}, 'Burn floxy', '/c2s');
     $("#home").fadeOut("slow",function() {
-        $("#burnPage").fadeIn("slow");
+        $("#clientServer").fadeIn("slow");
     })
 }
 
@@ -73,16 +82,6 @@ function binaryExpSelector() {
 const distroOptions = [{os: 'linux', platform: 'amd64', distro: 'Linux amd64'},{os: 'darwin',platform: 'amd64', distro: 'Darwin amd64'},{os: 'windows', platform: 'amd64', distro: 'Win amd64'}];
 let localDistroSelected = -1;
 
-function localDistroSelector() {
-    localDistroSelected++;
-    if (localDistroSelected > distroOptions.length -1){
-        localDistroSelected = 0;
-    }
-    $("#localDistroSelector").text(distroOptions[localDistroSelected].distro)
-    if (canSubmit()){
-        $("#burnButton").removeClass("disabled")
-    }
-}
 
 let remoteDistroSelected = -1;
 
@@ -118,86 +117,60 @@ function canSubmit(){
     return false;
 }
 
-function submit() {
+function submit(kind) {
     grecaptcha.ready(function() {
         grecaptcha.execute('6LeUMCMaAAAAABmP3FZtGTOFcGDgpGR0Z0pI7j2R', {action: 'submit'}).then(function(token) {
-            burnSubmit(token)
+            burnSubmit(token, kind)
         });
     });
 }
 
-function burnSubmit(token) {
-    if (!canSubmit()){
-        return
-    }
+function burnSubmit(token, kind) {
     $("#canvas").fadeTo( "slow" , 1)
-    $("#formPage").fadeOut("slow",function() {
+    $("#home").fadeOut("slow",function() {
         startBurn()
         $("#burningPage").fadeIn("slow",function() {
-            Http.open("POST", 'http://localhost:8080/api/floxy/burn');
+            Http.open("POST", `http://localhost:8080/api/${kind}`);
             Http.setRequestHeader("Content-Type", "application/json");
             const data = JSON.stringify(
                 {
-                    "remotePassword": remotePasswordSelected === 1,
-                    "expiration": binaryExpOptions[binaryExpSelected].value,
-                    "distro": [
-                        {'kind': 'local', 'os': distroOptions[localDistroSelected].os, 'platform': distroOptions[localDistroSelected].platform},
-                        {'kind': 'remote', 'os': distroOptions[remoteDistroSelected].os, 'platform': distroOptions[remoteDistroSelected].platform}
-                    ],
-                    "token": token,
+                    "captcha": token,
                 }
             );
             Http.send(data);
             Http.onreadystatechange = (e) => {
                 const res = Http.responseText;
-                if (Http.status === 200 && Http.readyState === 4) {
-                    const resJson = JSON.parse(res);
-                    if (resJson.status === 'burning'){
-                        window.history.pushState({}, 'Share floxy', `/share/${resJson.fingerprint}`);
-                        getFloxy(resJson.fingerprint)
-                    }else if (resJson.status === 'non_approve'){
-                        stopBurn()
-                        $("#burnInProcess").fadeOut("slow",function() {
-                            $("#burnNotApprove").fadeIn("slow")
-                            stopBurn()
-                        })
-                    }else if (resJson.status === 'challenge'){
-                        stopBurn()
-                        $("#burnInProcess").fadeOut("slow",function() {
-                            $("#burnChallenge").fadeIn("slow")
-                            stopBurn()
-                        })
-                    }else {
-                        stopBurn()
-                        $("#burnInProcess").fadeOut("slow",function() {
-                            $("#binGenerationError").fadeIn("slow")
-                            stopBurn()
-                        })
-                    }
+                if (Http.status === 201 && Http.readyState === 4) {
+                    setTimeout(function(){
+                        const resJson = JSON.parse(res);
+                        window.history.pushState({}, 'Share floxy', `/share/${resJson.id}`);
+                        getFloxy(resJson.id)
+                    }, 2000);
+
                 }
             }
         })
     });
 }
 
-function getFloxy(fingerprint) {
+function getFloxy(id) {
     // $(".copyLink").attr("href", `http://localhost:8080/api/download/${fingerprint}/floxy`)
 
-    Http.open("GET", `http://localhost:8080/api/floxy/${fingerprint}`);
+    Http.open("GET", `http://localhost:8080/api/users/${id}`);
     Http.send();
     Http.onreadystatechange = (e) => {
         const res = Http.responseText;
         if (Http.readyState === 4) {
             if (!getFloxyResult(Http.status, res)){
-                iterateUntilResult(fingerprint)
+                iterateUntilResult(id)
             }
         }
     }
 }
 
-function iterateUntilResult(fingerprint){
+function iterateUntilResult(id){
     const loop = setInterval(function(){
-        Http.open("GET", `http://localhost:8080/api/floxy/${fingerprint}`);
+        Http.open("GET", `http://localhost:8080/api/users/${id}`);
         Http.send();
         Http.onreadystatechange = (e) => {
             const res = Http.responseText;
@@ -210,35 +183,31 @@ function iterateUntilResult(fingerprint){
     }, 3000);
 }
 
+
 function getFloxyResult(status, res) {
+    if (status === 404) {
+        $("#noLinkSharePage").fadeIn("slow");
+        return true
+    }
     if (status === 200) {
         const resJson = JSON.parse(res);
-        if (resJson.status === 'active') {
-            $("#burningPage").fadeOut("slow",function() {
-                $("#canvas").fadeTo( "slow" , 0.5)
-                stopBurn();
-                if (resJson.remotePassword !== null && resJson.remotePassword !== "") {
-                    $(".remoteCode").text(`remote>./floxyL -k=remote -p=${resJson.remotePassword} -h {{host:ip}}`)
-                }
-                $("#shareExpSecurity").text(`${resJson.linkExpiration} minute(s)`)
-                for (i = 0; i < resJson.binaries.length; i++) {
-                    const binary = resJson.binaries[i]
-                    $( "#downloadLink" ).append(`<p><a href='http://localhost:8080/api/download/${resJson.fingerPrint}/${binary.fingerPrint}/floxy'><code>${binary.kind}>./floxy -h {{host:ip}}</code>download</a> or share floxy ${binary.kind} binary (${binary.os} distro)</p>`);
-                    console.log(resJson.binaries[i])
-                }
-                $("#sharePage").fadeIn("slow");
-                return true
-            })
-        }
-        if (resJson.status === 'expired') {
+        $("#burningPage").fadeOut("slow",function() {
             $("#canvas").fadeTo( "slow" , 0.5)
-            stopBurn();
-            $("#noLinkSharePage").fadeIn("slow");
+            greenBurn();
+            $(".serverPlaceholder").text(resJson.server_command)
+            $(".serverPlaceholder").text(resJson.server_command)
+            $("#localPlaceholder").text(resJson.local_command)
+            $(".passwordPlaceholder").text(resJson.password)
+            $(".domainPlaceholder").text(resJson.domain)
+
+            if (resJson.kind == "c2s") {
+                $("#c2sPage").fadeIn("slow");
+            }
+            if (resJson.kind == "w2s") {
+                $("#w2sPage").fadeIn("slow");
+            }
             return true
-        }
-        if (resJson.status === 'burning') {
-            return false
-        }
+        })
     }else{
         $("#burningPage").fadeOut("slow",function() {
             $("#noLinkSharePage").fadeIn("slow");
@@ -262,3 +231,16 @@ const getUrlParameter = function getUrlParameter(sParam) {
         }
     }
 };
+
+function copyText(element) {
+    var $temp = $("<input>");
+    $("body").append($temp);
+    $temp.val($(element).text()).select();
+    document.execCommand("copy");
+    $temp.remove();
+}
+
+function goToHome() {
+    window.history.pushState({}, 'Home floxy', `/`);
+    flow()
+}

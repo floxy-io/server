@@ -13,6 +13,7 @@ import (
 	"syscall"
 )
 
+// using example: sshpass -p testing ssh -N -R 0:localhost:1323 localhost -p 2222
 func main() {
 	ctx := context.Background()
 	//startLog()

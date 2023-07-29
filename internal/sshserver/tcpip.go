@@ -1,6 +1,7 @@
 package sshserver
 
 import (
+	"github.com/danielsussa/floxy/internal/userstore"
 	"github.com/gliderlabs/ssh"
 	"io"
 	"log"
@@ -123,6 +124,10 @@ func (h *forwardedTCPHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server,
 		}
 		_, destPortStr, _ := net.SplitHostPort(ln.Addr().String())
 		destPort, _ := strconv.Atoi(destPortStr)
+
+		// set new user password and destination port
+		userstore.Add(ctx.Value("user").(string), destPort)
+
 		h.Lock()
 		h.forwards[addr] = ln
 		h.Unlock()

@@ -3,7 +3,7 @@ package httpserver
 import (
 	"fmt"
 	"github.com/danielsussa/floxy/internal/env"
-	"github.com/danielsussa/floxy/internal/sshserver"
+	"github.com/danielsussa/floxy/internal/userstore"
 	"io"
 	"log"
 	"net"
@@ -45,12 +45,12 @@ func handleCall(serverConn net.Conn, baseDns string) error {
 
 	dns := strings.ReplaceAll(strings.Split(info.Host(), baseDns)[0], ".", "")
 
-	user, err := sshserver.GetUserByDomain(dns)
+	port, err := userstore.Get(dns)
 	if err != nil {
 		return err
 	}
 
-	clientConn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", user.Port))
+	clientConn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		return err
 	}
@@ -83,32 +83,6 @@ func handleCall(serverConn net.Conn, baseDns string) error {
 	<-chDone
 	return nil
 }
-
-//func handleCall(serverConn net.Conn, baseDns string) error {
-//	defer serverConn.Close()
-//
-//	info := extractHttpInfo(serverConn)
-//
-//	dns := strings.ReplaceAll(strings.Split(info.Host(), baseDns)[0], ".", "")
-//
-//	user, err := sshserver.GetUserByDomain(dns)
-//	if err != nil {
-//		return err
-//	}
-//
-//	clientConn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", user.Port))
-//	if err != nil {
-//		return err
-//	}
-//
-//	_, err = fmt.Fprint(clientConn, info.Buffer())
-//	if err != nil {
-//		return err
-//	}
-//
-//	handleClient(clientConn, serverConn)
-//	return nil
-//}
 
 func handleClient(client, remote net.Conn) {
 	defer client.Close()

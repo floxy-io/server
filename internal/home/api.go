@@ -29,11 +29,6 @@ func Start() {
 	go func() {
 		e = echo.New()
 		e.Static("/", AssetsPath)
-		e.Static("/c2s", AssetsPath)
-		e.Static("/share/:fingerprint", AssetsPath)
-		e.POST("/api/c2s", remoteLocalProxy)
-		e.GET("/api/users/:user", getUserProxy)
-		e.POST("/api/w2s", webRemoteProxy)
 		e.Logger.Fatal(e.Start(":8080"))
 	}()
 }

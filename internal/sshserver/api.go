@@ -187,30 +187,16 @@ func Start() {
 				},
 			},
 			ReversePortForwardingCallback: func(ctx ssh.Context, host string, port uint32) bool {
-				val := ctx.Value("user")
-				if val == nil {
+				if port != 0 {
 					return false
 				}
-				pUser := val.(*ProxyUserMap)
-				if pUser.Port != int(port) {
-					return false
-				}
+
+				ctx.SetValue("user", ctx.User())
 				return true
 			},
 			PasswordHandler: func(ctx ssh.Context, password string) bool {
-				if val, ok := sshUserMap.Load(password); ok {
-					ctx.SetValue("user", val)
-					return true
-				}
-				return false
-			},
-			PublicKeyHandler: func(ctx ssh.Context, key ssh.PublicKey) bool {
-				keyStr := base64.StdEncoding.EncodeToString(key.Marshal())
-				if val, ok := sshUserMap.Load(keyStr); ok {
-					ctx.SetValue("user", val)
-					return true
-				}
-				return false
+				//ctx.SetValue("password", password)
+				return true
 			},
 		}
 		s, err := ssh2.NewSignerFromKey(keys.LoadKey())

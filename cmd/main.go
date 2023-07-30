@@ -3,10 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/danielsussa/floxy/internal/home"
-	"github.com/danielsussa/floxy/internal/httpserver"
-	"github.com/danielsussa/floxy/internal/infra/db"
-	"github.com/danielsussa/floxy/internal/sshserver"
+	"github.com/danielsussa/floxy/internal/entrypoints/httpserver"
+	"github.com/danielsussa/floxy/internal/entrypoints/sshserver"
 	"log"
 	"os"
 	"os/signal"
@@ -16,15 +14,8 @@ import (
 // using example: sshpass -p testing ssh -N -R 0:localhost:1323 localhost -p 2222
 func main() {
 	ctx := context.Background()
-	//startLog()
 	log.Println("start log!")
 
-	err := db.Setup()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	home.Start()
 	sshserver.Start()
 	<-httpserver.Start()
 
@@ -39,25 +30,11 @@ func main() {
 		//	break
 	}
 
-	if err := home.Shutdown(ctx); err != nil {
-		log.Fatal(ctx, err.Error())
-	}
 	if err := sshserver.Shutdown(ctx); err != nil {
 		log.Fatal(ctx, err.Error())
 	}
-	//if err := httpserver.Shutdown(); err != nil {
-	//	log.Fatal(ctx, err.Error())
-	//}
-
-}
-
-func startLog() {
-	file, err := os.OpenFile("build/floxy.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err)
+	if err := httpserver.Shutdown(); err != nil {
+		log.Fatal(ctx, err.Error())
 	}
 
-	defer file.Close()
-
-	log.SetOutput(file)
 }

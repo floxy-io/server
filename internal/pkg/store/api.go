@@ -1,4 +1,4 @@
-package userstore
+package store
 
 import (
 	"fmt"
@@ -19,17 +19,21 @@ var (
 	dnsToPort sync.Map
 )
 
-func Add(user string, port int) {
+func Remove(user string) {
+	dnsToPort.Delete(user)
+}
+
+func Add(user string, port int64) {
 	dnsToPort.Store(user, port)
 }
 
-func Get(dns string) (int, error) {
+func Get(dns string) (int64, error) {
 	val, ok := dnsToPort.Load(dns)
 	if !ok {
 		return 0, fmt.Errorf("not found")
 	}
 
-	return val.(int), nil
+	return val.(int64), nil
 }
 
 func Has(dns string) bool {

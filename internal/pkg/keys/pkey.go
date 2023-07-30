@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-	"github.com/danielsussa/floxy/internal/env"
+	"github.com/danielsussa/floxy/internal/pkg/env"
 )
 
 func LoadKey() *rsa.PrivateKey {

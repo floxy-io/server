@@ -1,7 +1,7 @@
 package sshserver
 
 import (
-	"github.com/danielsussa/floxy/internal/userstore"
+	"github.com/danielsussa/floxy/internal/pkg/store"
 	"github.com/gliderlabs/ssh"
 	"io"
 	"log"
@@ -34,12 +34,18 @@ func directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.N
 		return
 	}
 
-	if srv.LocalPortForwardingCallback == nil || !srv.LocalPortForwardingCallback(ctx, d.DestAddr, d.DestPort) {
-		newChan.Reject(gossh.Prohibited, "port forwarding is disabled")
+	//if srv.LocalPortForwardingCallback == nil || !srv.LocalPortForwardingCallback(ctx, d.DestAddr, d.DestPort) {
+	//	newChan.Reject(gossh.Prohibited, "port forwarding is disabled")
+	//	return
+	//}
+
+	port, err := store.Get(ctx.User())
+	if err != nil {
+		newChan.Reject(gossh.Prohibited, "user is not active")
 		return
 	}
 
-	dest := net.JoinHostPort(d.DestAddr, strconv.FormatInt(int64(d.DestPort), 10))
+	dest := net.JoinHostPort(d.DestAddr, strconv.FormatInt(port, 10))
 
 	var dialer net.Dialer
 	dconn, err := dialer.DialContext(ctx, "tcp", dest)
@@ -109,8 +115,7 @@ func (h *forwardedTCPHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server,
 	case "tcpip-forward":
 		var reqPayload remoteForwardRequest
 		if err := gossh.Unmarshal(req.Payload, &reqPayload); err != nil {
-			// TODO: log parse failure
-			return false, []byte{}
+			return false, []byte("failed to parse request")
 		}
 		if srv.ReversePortForwardingCallback == nil || !srv.ReversePortForwardingCallback(ctx, reqPayload.BindAddr, reqPayload.BindPort) {
 			return false, []byte("port forwarding is disabled")
@@ -118,7 +123,6 @@ func (h *forwardedTCPHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server,
 		addr := net.JoinHostPort(reqPayload.BindAddr, strconv.Itoa(int(reqPayload.BindPort)))
 		ln, err := net.Listen("tcp", addr)
 		if err != nil {
-			// TODO: log listen failure
 			log.Println("error listen failure:", err)
 			return false, []byte{}
 		}
@@ -126,7 +130,7 @@ func (h *forwardedTCPHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server,
 		destPort, _ := strconv.Atoi(destPortStr)
 
 		// set new user password and destination port
-		userstore.Add(ctx.Value("user").(string), destPort)
+		store.Add(ctx.Value("user").(string), int64(destPort))
 
 		h.Lock()
 		h.forwards[addr] = ln
@@ -134,6 +138,9 @@ func (h *forwardedTCPHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server,
 		go func() {
 			<-ctx.Done()
 			h.Lock()
+
+			store.Remove(ctx.User())
+
 			ln, ok := h.forwards[addr]
 			h.Unlock()
 			if ok {

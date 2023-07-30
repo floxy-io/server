@@ -2,8 +2,8 @@ package httpserver
 
 import (
 	"fmt"
-	"github.com/danielsussa/floxy/internal/env"
-	"github.com/danielsussa/floxy/internal/userstore"
+	"github.com/danielsussa/floxy/internal/pkg/env"
+	"github.com/danielsussa/floxy/internal/pkg/store"
 	"io"
 	"log"
 	"net"
@@ -45,7 +45,7 @@ func handleCall(serverConn net.Conn, baseDns string) error {
 
 	dns := strings.ReplaceAll(strings.Split(info.Host(), baseDns)[0], ".", "")
 
-	port, err := userstore.Get(dns)
+	port, err := store.Get(dns)
 	if err != nil {
 		return err
 	}

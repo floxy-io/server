@@ -1,3 +1,4 @@
 *.db
 ssh_concept
 .idea
+.tmp

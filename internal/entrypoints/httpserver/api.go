@@ -16,7 +16,7 @@ func Shutdown() error {
 	return listener.Close()
 }
 
-func Start() chan bool {
+func Start(s *store.Engine) chan bool {
 	chStart := make(chan bool)
 	baseDns := env.GetOrDefault(env.ServerBaseDns, "localhost")
 	go func() {
@@ -32,25 +32,26 @@ func Start() chan bool {
 				fmt.Println("conn err: ", err)
 				continue
 			}
-			go handleCall(serverConn, baseDns)
+			go handleCall(s, serverConn, baseDns)
 		}
 	}()
 	return chStart
 }
 
-func handleCall(serverConn net.Conn, baseDns string) error {
+func handleCall(s *store.Engine, serverConn net.Conn, baseDns string) error {
 	defer serverConn.Close()
 
 	info, reader, bRemain := extractHttpInfo(serverConn)
 
 	dns := strings.ReplaceAll(strings.Split(info.Host(), baseDns)[0], ".", "")
+	log.Println(fmt.Sprintf("dns: %s", dns))
 
-	port, err := store.Get(dns)
-	if err != nil {
-		return err
+	reg, ok := s.Get(dns)
+	if !ok {
+		return fmt.Errorf("user not found")
 	}
 
-	clientConn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+	clientConn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", reg.Port))
 	if err != nil {
 		return err
 	}

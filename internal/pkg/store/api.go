@@ -1,7 +1,8 @@
 package store
 
 import (
-	"fmt"
+	"github.com/gliderlabs/ssh"
+	"net"
 	"sync"
 )
 
@@ -9,34 +10,35 @@ type Engine struct {
 	dnsToPort sync.Map
 }
 
-func New() Engine {
-	return Engine{
+type Register struct {
+	Ln   net.Listener
+	Port int64
+}
+
+func (e *Engine) Get(dns string) (Register, bool) {
+	val, ok := e.dnsToPort.Load(dns)
+	if !ok {
+		return Register{}, false
+	}
+
+	return val.(Register), true
+}
+
+func (e *Engine) Add(ctx ssh.Context, r Register) {
+	e.dnsToPort.Store(ctx.User(), r)
+}
+
+func (e *Engine) Remove(ctx ssh.Context) {
+	val, ok := e.dnsToPort.Load(ctx.User())
+	if !ok {
+		return
+	}
+	_ = val.(Register).Ln.Close()
+	e.dnsToPort.Delete(ctx.User())
+}
+
+func New() *Engine {
+	return &Engine{
 		dnsToPort: sync.Map{},
 	}
-}
-
-var (
-	dnsToPort sync.Map
-)
-
-func Remove(user string) {
-	dnsToPort.Delete(user)
-}
-
-func Add(user string, port int64) {
-	dnsToPort.Store(user, port)
-}
-
-func Get(dns string) (int64, error) {
-	val, ok := dnsToPort.Load(dns)
-	if !ok {
-		return 0, fmt.Errorf("not found")
-	}
-
-	return val.(int64), nil
-}
-
-func Has(dns string) bool {
-	_, ok := dnsToPort.Load(dns)
-	return ok
 }

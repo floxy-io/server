@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/danielsussa/floxy/internal/entrypoints/httpserver"
 	"github.com/danielsussa/floxy/internal/entrypoints/sshserver"
+	"github.com/danielsussa/floxy/internal/pkg/store"
 	"log"
 	"os"
 	"os/signal"
@@ -16,8 +17,10 @@ func main() {
 	ctx := context.Background()
 	log.Println("start log!")
 
-	sshserver.Start()
-	<-httpserver.Start()
+	e := store.New()
+
+	sshserver.Start(e)
+	<-httpserver.Start(e)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)

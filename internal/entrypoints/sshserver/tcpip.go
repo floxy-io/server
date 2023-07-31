@@ -3,13 +3,11 @@ package sshserver
 import (
 	"github.com/danielsussa/floxy/internal/pkg/store"
 	"github.com/gliderlabs/ssh"
+	gossh "golang.org/x/crypto/ssh"
 	"io"
 	"log"
 	"net"
 	"strconv"
-	"sync"
-
-	gossh "golang.org/x/crypto/ssh"
 )
 
 const (
@@ -27,25 +25,20 @@ type localForwardChannelData struct {
 
 // directTCPIPHandler can be enabled by adding it to the server's
 // ChannelHandlers under direct-tcpip.
-func directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
+func (h *forwardedTCPHandler) directTCPIPHandler(srv *ssh.Server, conn *gossh.ServerConn, newChan gossh.NewChannel, ctx ssh.Context) {
 	d := localForwardChannelData{}
 	if err := gossh.Unmarshal(newChan.ExtraData(), &d); err != nil {
 		newChan.Reject(gossh.ConnectionFailed, "error parsing forward data: "+err.Error())
 		return
 	}
 
-	//if srv.LocalPortForwardingCallback == nil || !srv.LocalPortForwardingCallback(ctx, d.DestAddr, d.DestPort) {
-	//	newChan.Reject(gossh.Prohibited, "port forwarding is disabled")
-	//	return
-	//}
-
-	port, err := store.Get(ctx.User())
-	if err != nil {
+	reg, ok := h.store.Get(ctx.User())
+	if !ok {
 		newChan.Reject(gossh.Prohibited, "user is not active")
 		return
 	}
 
-	dest := net.JoinHostPort(d.DestAddr, strconv.FormatInt(port, 10))
+	dest := net.JoinHostPort(d.DestAddr, strconv.FormatInt(reg.Port, 10))
 
 	var dialer net.Dialer
 	dconn, err := dialer.DialContext(ctx, "tcp", dest)
@@ -100,16 +93,10 @@ type remoteForwardChannelData struct {
 // adding the HandleSSHRequest callback to the server's RequestHandlers under
 // tcpip-forward and cancel-tcpip-forward.
 type forwardedTCPHandler struct {
-	forwards map[string]net.Listener
-	sync.Mutex
+	store *store.Engine
 }
 
 func (h *forwardedTCPHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server, req *gossh.Request) (bool, []byte) {
-	h.Lock()
-	if h.forwards == nil {
-		h.forwards = make(map[string]net.Listener)
-	}
-	h.Unlock()
 	conn := ctx.Value(ssh.ContextKeyConn).(*gossh.ServerConn)
 	switch req.Type {
 	case "tcpip-forward":
@@ -130,22 +117,14 @@ func (h *forwardedTCPHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server,
 		destPort, _ := strconv.Atoi(destPortStr)
 
 		// set new user password and destination port
-		store.Add(ctx.Value("user").(string), int64(destPort))
+		h.store.Add(ctx, store.Register{
+			Ln:   ln,
+			Port: int64(destPort),
+		})
 
-		h.Lock()
-		h.forwards[addr] = ln
-		h.Unlock()
 		go func() {
 			<-ctx.Done()
-			h.Lock()
-
-			store.Remove(ctx.User())
-
-			ln, ok := h.forwards[addr]
-			h.Unlock()
-			if ok {
-				ln.Close()
-			}
+			h.store.Remove(ctx)
 		}()
 		go func() {
 			for {
@@ -155,8 +134,8 @@ func (h *forwardedTCPHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server,
 					log.Println("error close connection:", err)
 					break
 				}
-				originAddr, orignPortStr, _ := net.SplitHostPort(c.RemoteAddr().String())
-				originPort, _ := strconv.Atoi(orignPortStr)
+				originAddr, originPortStr, _ := net.SplitHostPort(c.RemoteAddr().String())
+				originPort, _ := strconv.Atoi(originPortStr)
 				payload := gossh.Marshal(&remoteForwardChannelData{
 					DestAddr:   reqPayload.BindAddr,
 					DestPort:   uint32(destPort),
@@ -184,9 +163,7 @@ func (h *forwardedTCPHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server,
 					}()
 				}()
 			}
-			h.Lock()
-			delete(h.forwards, addr)
-			h.Unlock()
+			h.store.Remove(ctx)
 		}()
 		return true, gossh.Marshal(&remoteForwardSuccess{uint32(destPort)})
 
@@ -196,13 +173,8 @@ func (h *forwardedTCPHandler) HandleSSHRequest(ctx ssh.Context, srv *ssh.Server,
 			// TODO: log parse failure
 			return false, []byte{}
 		}
-		addr := net.JoinHostPort(reqPayload.BindAddr, strconv.Itoa(int(reqPayload.BindPort)))
-		h.Lock()
-		ln, ok := h.forwards[addr]
-		h.Unlock()
-		if ok {
-			ln.Close()
-		}
+
+		h.store.Remove(ctx)
 		log.Println("cancel-tcpip-forward")
 		return true, nil
 	default:

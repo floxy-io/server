@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/danielsussa/floxy/internal/pkg/env"
 	"github.com/danielsussa/floxy/internal/pkg/keys"
+	"github.com/danielsussa/floxy/internal/pkg/store"
 	"github.com/gliderlabs/ssh"
 	ssh2 "golang.org/x/crypto/ssh"
 	"log"
@@ -21,11 +22,13 @@ var (
 func Shutdown(ctx context.Context) error {
 	return server.Shutdown(ctx)
 }
-func Start() {
+func Start(e *store.Engine) {
 	port := env.GetOrDefault(env.ServerSshPort, "2222")
 	log.Println(fmt.Sprintf("starting ssh server on port %s...", port))
 
-	forwardHandler := &forwardedTCPHandler{}
+	forwardHandler := &forwardedTCPHandler{
+		store: e,
+	}
 
 	go func() {
 		server = ssh.Server{
@@ -36,7 +39,7 @@ func Start() {
 			},
 			ChannelHandlers: map[string]ssh.ChannelHandler{
 				"direct-tcpip": func(srv *ssh.Server, conn *ssh2.ServerConn, newChan ssh2.NewChannel, ctx ssh.Context) {
-					directTCPIPHandler(srv, conn, newChan, ctx)
+					forwardHandler.directTCPIPHandler(srv, conn, newChan, ctx)
 				},
 			},
 			ReversePortForwardingCallback: func(ctx ssh.Context, host string, port uint32) bool {

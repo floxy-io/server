@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"strings"
 )
 
 var listener net.Listener
@@ -43,10 +42,9 @@ func handleCall(s *store.Engine, serverConn net.Conn, baseDns string) error {
 
 	info, reader, bRemain := extractHttpInfo(serverConn)
 
-	dns := strings.ReplaceAll(strings.Split(info.Host(), baseDns)[0], ".", "")
-	log.Println(fmt.Sprintf("dns: %s", dns))
+	log.Println(fmt.Sprintf("dns: %s", info.Subdomain()))
 
-	reg, ok := s.Get(dns)
+	reg, ok := s.Get(info.Subdomain())
 	if !ok {
 		return fmt.Errorf("user not found")
 	}

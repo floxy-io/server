@@ -21,6 +21,11 @@ func (http HttpInfo) Host() string {
 	return http.host
 }
 
+func (http HttpInfo) Subdomain() string {
+	hostSpl := strings.Split(http.Host(), ".")
+	return hostSpl[0]
+}
+
 func extractHttpInfo(conn net.Conn) (*HttpInfo, *bufio.Reader, []byte) {
 	var info HttpInfo
 	r := bufio.NewReader(conn)
